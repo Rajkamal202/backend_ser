@@ -19,36 +19,9 @@ function verifyPaddleSignature(payload, signature) {
 }
 
 // Webhook Endpoint
-app.post("/paddle-webhook", async (req, res) => {
-  try {
-    const rawBody = JSON.stringify(req.body); 
-    const signature = req.headers["paddle-signature"];
-
-    // Verify the webhook signature
-    if (!verifyPaddleSignature(rawBody, signature)) {
-      console.error("Invalid Paddle webhook signature");
-      return res.status(400).send("Invalid signature");
-    }
-
-    // Parse the event data
-    const eventData = req.body;
-    const alertName = eventData.alert_name;
-
-    console.log(`Received Paddle event: ${alertName}`, eventData);
-
-    // Handle specific events
-    if (alertName === "payment_succeeded") {
-      await handlePaymentSucceeded(eventData);
-    } else {
-      console.log(`Unhandled event: ${alertName}`);
-    }
-
-    // Respond to Paddle
-    res.status(200).send("Webhook received successfully");
-  } catch (error) {
-    console.error("Error processing webhook:", error);
-    res.status(500).send("Internal Server Error");
-  }
+app.post('/paddle-webhook', (req, res) => {
+  console.log('Webhook received:', req.body);
+  res.sendStatus(200);
 });
 
 
