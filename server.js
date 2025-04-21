@@ -2,47 +2,44 @@ const express = require("express");
 const axios = require("axios");
 const crypto = require("crypto");
 const app = express();
+app.use(express.json()); // Re-enable JSON parsing for easier access to eventData
 
 // Paddle Sandbox Public Key (for verifying webhook signatures)
-const PADDLE_PUBLIC_KEY = process.env.PADDLE_PUBLIC_KEY ? process.env.PADDLE_PUBLIC_KEY.replace(/\\n/g, '\n') : "";
+const PADDLE_PUBLIC_KEY = process.env.PADDLE_PUBLIC_KEY; // Keep this for when you have it
 
 // Zoho Billing API Configuration
 const ZOHO_BILLING_API_URL = process.env.ZOHO_BILLING_API_URL;
 const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN;
 
-// Helper Function: Verify Paddle Webhook Signature
-function verifyPaddleSignature(rawPayload, signature) {
-  if (!PADDLE_PUBLIC_KEY || !signature || !rawPayload) {
-    console.warn("Missing public key, signature, or payload for verification.");
-    return false; // Or handle this case as appropriate for your security needs
-  }
-  try {
-    const verifier = crypto.createVerify("sha1");
-    verifier.update(rawPayload, "utf8");
-    return verifier.verify(PADDLE_PUBLIC_KEY, signature, "base64");
-  } catch (error) {
-    console.error("Error during signature verification:", error);
-    return false;
-  }
-}
+// Helper Function: Verify Paddle Webhook Signature (CURRENTLY NOT USED)
+// function verifyPaddleSignature(rawPayload, signature) {
+//   if (!PADDLE_PUBLIC_KEY || !signature || !rawPayload) {
+//     console.warn("Missing public key, signature, or payload for verification.");
+//     return false; // Or handle this case as appropriate for your security needs
+//   }
+//   try {
+//     const verifier = crypto.createVerify("sha1");
+//     verifier.update(rawPayload, "utf8");
+//     return verifier.verify(PADDLE_PUBLIC_KEY, signature, "base64");
+//   } catch (error) {
+//     console.error("Error during signature verification:", error);
+//     return false;
+//   }
+// }
 
-// Webhook Endpoint
-app.post("/paddle-webhook", express.raw({ type: "*/*" }), async (req, res) => {
+// Webhook Endpoint (SIGNATURE VERIFICATION TEMPORARILY REMOVED)
+app.post("/paddle-webhook", async (req, res) => {
   try {
-    const rawBody = req.body.toString("utf8");
+    // const rawBody = req.body.toString("utf8");
     const signature = req.headers["paddle-signature"];
 
-    console.log("Raw Body:", rawBody);
-    console.log("Signature Header:", signature);
+    console.log("Signature Header (for info):", signature);
+    console.log("Webhook Body:", req.body); // Log the parsed JSON body
 
-    // Verify the webhook signature
-    if (!verifyPaddleSignature(rawBody, signature)) {
-      console.error("Invalid Paddle webhook signature");
-      return res.status(400).send("Invalid signature");
-    }
+    // // TEMPORARILY BYPASSING SIGNATURE VERIFICATION
+    console.warn("⚠️⚠️⚠️ Webhook Signature Verification IS CURRENTLY DISABLED! ⚠️⚠️⚠️");
 
-    // Parse the event data (now that signature is verified)
-    const eventData = JSON.parse(rawBody);
+    const eventData = req.body;
     const alertName = eventData.alert_name;
 
     console.log(`Received Paddle event: ${alertName}`, eventData);
