@@ -2,28 +2,65 @@ const express = require("express");
 const axios = require("axios");
 const crypto = require("crypto");
 const app = express();
-app.use(express.json()); 
 
 // Paddle Sandbox Public Key (for verifying webhook signatures)
-const PADDLE_PUBLIC_KEY = process.env.PADDLE_PUBLIC_KEY;
+const PADDLE_PUBLIC_KEY = process.env.PADDLE_PUBLIC_KEY ? process.env.PADDLE_PUBLIC_KEY.replace(/\\n/g, '\n') : "";
 
 // Zoho Billing API Configuration
 const ZOHO_BILLING_API_URL = process.env.ZOHO_BILLING_API_URL;
-const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN; 
+const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN;
 
 // Helper Function: Verify Paddle Webhook Signature
-function verifyPaddleSignature(payload, signature) {
-  const verifier = crypto.createVerify("sha1");
-  verifier.update(payload);
-  return verifier.verify(PADDLE_PUBLIC_KEY, signature, "base64");
+function verifyPaddleSignature(rawPayload, signature) {
+  if (!PADDLE_PUBLIC_KEY || !signature || !rawPayload) {
+    console.warn("Missing public key, signature, or payload for verification.");
+    return false; // Or handle this case as appropriate for your security needs
+  }
+  try {
+    const verifier = crypto.createVerify("sha1");
+    verifier.update(rawPayload, "utf8");
+    return verifier.verify(PADDLE_PUBLIC_KEY, signature, "base64");
+  } catch (error) {
+    console.error("Error during signature verification:", error);
+    return false;
+  }
 }
 
 // Webhook Endpoint
-app.post('/paddle-webhook', (req, res) => {
-  console.log('Webhook received:', req.body);
-  res.sendStatus(200);
-});
+app.post("/paddle-webhook", express.raw({ type: "*/*" }), async (req, res) => {
+  try {
+    const rawBody = req.body.toString("utf8");
+    const signature = req.headers["paddle-signature"];
 
+    console.log("Raw Body:", rawBody);
+    console.log("Signature Header:", signature);
+
+    // Verify the webhook signature
+    if (!verifyPaddleSignature(rawBody, signature)) {
+      console.error("Invalid Paddle webhook signature");
+      return res.status(400).send("Invalid signature");
+    }
+
+    // Parse the event data (now that signature is verified)
+    const eventData = JSON.parse(rawBody);
+    const alertName = eventData.alert_name;
+
+    console.log(`Received Paddle event: ${alertName}`, eventData);
+
+    // Handle specific events
+    if (alertName === "payment_succeeded") {
+      await handlePaymentSucceeded(eventData);
+    } else {
+      console.log(`Unhandled event: ${alertName}`);
+    }
+
+    // Respond to Paddle
+    res.status(200).send("Webhook received successfully");
+  } catch (error) {
+    console.error("Error processing webhook:", error);
+    res.status(500).send("Internal Server Error");
+  }
+});
 
 async function handlePaymentSucceeded(eventData) {
   try {
@@ -125,4 +162,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
