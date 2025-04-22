@@ -3,142 +3,134 @@ const axios = require("axios");
 const crypto = require("crypto");
 const app = express();
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-// Re-enable JSON parsing for easier access to eventData
-
-// Paddle Sandbox Public Key (for verifying webhook signatures)
-const PADDLE_PUBLIC_KEY = process.env.PADDLE_PUBLIC_KEY; // Keep this for when you have it
-
-// Zoho Billing API Configuration
+// Environment Variables (with checks)
+const PADDLE_PUBLIC_KEY = process.env.PADDLE_PUBLIC_KEY;
 const ZOHO_BILLING_API_URL = process.env.ZOHO_BILLING_API_URL;
 const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN;
 
-// Helper Function: Verify Paddle Webhook Signature (CURRENTLY NOT USED)
-// function verifyPaddleSignature(rawPayload, signature) {
-//   if (!PADDLE_PUBLIC_KEY || !signature || !rawPayload) {
-//     console.warn("Missing public key, signature, or payload for verification.");
-//     return false; // Or handle this case as appropriate for your security needs
-//   }
-//   try {
-//     const verifier = crypto.createVerify("sha1");
-//     verifier.update(rawPayload, "utf8");
-//     return verifier.verify(PADDLE_PUBLIC_KEY, signature, "base64");
-//   } catch (error) {
-//     console.error("Error during signature verification:", error);
-//     return false;
-//   }
-// }
+if (!PADDLE_PUBLIC_KEY || !ZOHO_BILLING_API_URL || !ZOHO_OAUTH_TOKEN) {
+  throw new Error("Missing required environment variables");
+}
 
-// Webhook Endpoint (SIGNATURE VERIFICATION TEMPORARILY REMOVED)
-app.post("/paddle-webhook", async (req, res) => {
-  try {
-    // const rawBody = req.body.toString("utf8");
-const signature = req.body.p_signature;
-
-
-    console.log("Signature Header (for info):", signature);
-    console.log("Webhook Body:", req.body); // Log the parsed JSON body
-
-    // // TEMPORARILY BYPASSING SIGNATURE VERIFICATION
-    console.warn("⚠️⚠️⚠️ Webhook Signature Verification IS CURRENTLY DISABLED! ⚠️⚠️⚠️");
-
-    const eventData = req.body;
-    const alertName = eventData.alert_name;
-
-    console.log(`Received Paddle event: ${alertName}`, eventData);
-
-    // Handle specific events
-    if (alertName === "payment_succeeded") {
-      await handlePaymentSucceeded(eventData);
-    } else {
-      console.log(`Unhandled event: ${alertName}`);
-    }
-
-    // Respond to Paddle
-    res.status(200).send("Webhook received successfully");
-  } catch (error) {
-    console.error("Error processing webhook:", error);
-    res.status(500).send("Internal Server Error");
+// Capture raw body for signature verification
+const rawBodySaver = (req, res, buf) => {
+  if (buf && buf.length) {
+    req.rawBody = buf.toString("utf8");
   }
-});
+};
 
-async function handlePaymentSucceeded(eventData) {
+app.use(
+  "/paddle-webhook",
+  express.raw({ type: "*/*", verify: rawBodySaver })
+);
+
+// Paddle Signature Verification
+function verifyPaddleSignature(rawPayload, signature) {
   try {
-    // Extract payment details
-    const customerEmail = eventData.email;
-    const amount = parseFloat(eventData.amount);
-    const currency = eventData.currency;
-
-    console.log(`Processing payment for ${customerEmail}: ${amount} ${currency}`);
-
-    // Step 1: Check if the customer exists in Zoho Billing
-    const customerId = await getOrCreateCustomerInZoho(customerEmail);
-
-    // Step 2: Create an invoice in Zoho Billing
-    await createInvoiceInZoho(customerId, amount, currency);
-
-    console.log("Invoice created in Zoho Billing successfully");
+    const verifier = crypto.createVerify("sha1");
+    verifier.update(rawPayload, "utf8");
+    return verifier.verify(PADDLE_PUBLIC_KEY, signature, "base64");
   } catch (error) {
-    console.error("Error handling payment succeeded event:", error);
+    console.error("Error verifying Paddle signature:", error);
+    return false;
   }
 }
 
-// Get or Create Customer in Zoho Billing
+// Webhook Endpoint
+app.post("/paddle-webhook", async (req, res) => {
+  try {
+    const signature = req.body.p_signature;
+
+    const rawBody = req.rawBody;
+    const parsedBody = Object.fromEntries(new URLSearchParams(rawBody));
+
+    console.log("🔐 Received signature:", signature);
+    console.log("📦 Parsed Body:", parsedBody);
+
+    // Verify signature
+    const isValid = verifyPaddleSignature(rawBody, signature);
+    if (!isValid) {
+      console.warn("🚫 Invalid Paddle webhook signature");
+      return res.status(403).send("Invalid signature");
+    }
+
+    const alertName = parsedBody.alert_name;
+    console.log(`📢 Event received: ${alertName}`);
+
+    // Process supported event
+    if (alertName === "payment_succeeded") {
+      await handlePaymentSucceeded(parsedBody);
+    } else {
+      console.log(`❓ Unhandled event type: ${alertName}`);
+    }
+
+    res.status(200).send("Webhook received");
+  } catch (error) {
+    console.error("❌ Webhook processing error:", error);
+    res.status(500).send("Internal server error");
+  }
+});
+
+// Handle payment succeeded
+async function handlePaymentSucceeded(data) {
+  const email = data.email;
+  const amount = parseFloat(data.amount);
+  const currency = data.currency;
+  const plan = data.subscription_plan_name || "Subscription";
+
+  console.log(`💳 Payment succeeded: ${email}, ${amount} ${currency}`);
+
+  const customerId = await getOrCreateCustomerInZoho(email);
+  await createInvoiceInZoho(customerId, amount, currency, plan);
+
+  console.log("🧾 Invoice created successfully");
+}
+
+// Get or create customer in Zoho
 async function getOrCreateCustomerInZoho(email) {
   try {
-    // Search for the customer by email
-    const searchResponse = await axios.get(
+    const res = await axios.get("https://invoice.zoho.in/api/v3/customers", {
+      headers: {
+        Authorization: `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`,
+      },
+      params: { email },
+    });
+
+    if (res.data.customers?.length > 0) {
+      return res.data.customers[0].customer_id;
+    }
+
+    const createRes = await axios.post(
       "https://invoice.zoho.in/api/v3/customers",
+      {
+        customer_name: email.split("@")[0],
+        email,
+      },
       {
         headers: {
           Authorization: `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`,
-        },
-        params: {
-          email: email,
+          "Content-Type": "application/json",
         },
       }
     );
 
-    const customers = searchResponse.data.customers || [];
-
-    if (customers.length > 0) {
-      // Customer already exists, return their ID
-      return customers[0].customer_id;
-    } else {
-      // Create a new customer
-      const createResponse = await axios.post(
-        "https://invoice.zoho.in/api/v3/customers",
-        {
-          customer_name: email.split("@")[0], // Use email prefix as name
-          email: email,
-        },
-        {
-          headers: {
-            Authorization: `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      return createResponse.data.customer.customer_id;
-    }
+    return createRes.data.customer.customer_id;
   } catch (error) {
-    console.error("Error getting/creating customer in Zoho:", error);
+    console.error("⚠️ Customer fetch/create error:", error);
     throw error;
   }
 }
 
-// Create Invoice in Zoho Billing
-async function createInvoiceInZoho(customerId, amount, currency) {
+// Create invoice in Zoho
+async function createInvoiceInZoho(customerId, amount, currency, plan) {
   try {
-    const response = await axios.post(
+    const res = await axios.post(
       ZOHO_BILLING_API_URL,
       {
         customer_id: customerId,
         line_items: [
           {
-            name: "Subscription Payment",
+            name: `Paddle Payment - ${plan}`,
             rate: amount,
           },
         ],
@@ -152,14 +144,14 @@ async function createInvoiceInZoho(customerId, amount, currency) {
       }
     );
 
-    console.log("Invoice created:", response.data.invoice.invoice_number);
+    console.log("🧾 Zoho Invoice:", res.data.invoice.invoice_number);
   } catch (error) {
-    console.error("Error creating invoice in Zoho:", error);
+    console.error("⚠️ Invoice creation error:", error.response?.data || error);
     throw error;
   }
 }
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
