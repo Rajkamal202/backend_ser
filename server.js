@@ -12,15 +12,17 @@ app.post("/paddle-webhook", async (req, res) => {
   try {
     // Parse the event data
     const eventData = req.body;
-    const alertName = eventData.alert_name;
+    const eventType = eventData.event_type;  // Use event_type here
 
-    console.log(`Received Paddle event: ${alertName}`, eventData);
+    console.log(`Received Paddle event: ${eventType}`, eventData);
 
-    // Handle specific events
-    if (alertName === "payment_succeeded") {
-      await handlePaymentSucceeded(eventData);
+    // Handle specific events based on event_type
+    if (eventType === "subscription.created") {
+      await handleSubscriptionCreated(eventData);
+    } else if (eventType === "transaction.completed") {
+      await handleTransactionCompleted(eventData);
     } else {
-      console.log(`Unhandled event: ${alertName}`);
+      console.log(`Unhandled event: ${eventType}`);
     }
 
     // Respond to Paddle
