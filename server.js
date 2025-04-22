@@ -1,6 +1,8 @@
 const express = require("express");
 const axios = require("axios");
 const app = express();
+require('dotenv').config();
+
 app.use(express.json()); 
 
 // Zoho Billing API Configuration
@@ -33,6 +35,43 @@ app.post("/paddle-webhook", async (req, res) => {
   }
 });
 
+// Handle subscription created event
+async function handleSubscriptionCreated(eventData) {
+  try {
+    // Logic to handle subscription creation
+    const customerId = eventData.data.customer_id;
+    const subscriptionId = eventData.data.id;
+
+    console.log(`Handling subscription created for customer: ${customerId}, subscription ID: ${subscriptionId}`);
+
+    // You can now use customerId and subscriptionId to interact with your database or Zoho API
+    // Add any additional processing or saving logic here if necessary
+
+  } catch (error) {
+    console.error("Error handling subscription created event:", error);
+  }
+}
+
+// Handle transaction completed event
+async function handleTransactionCompleted(eventData) {
+  try {
+    // Extract relevant details from the transaction
+    const transactionId = eventData.data.id;
+    const amount = eventData.data.items[0].amount;
+    const currency = eventData.data.currency_code;
+    const customerId = eventData.data.customer_id;
+
+    console.log(`Handling transaction completed for customer: ${customerId}, transaction ID: ${transactionId}`);
+
+    // Process the payment and create an invoice in Zoho Billing or any other related logic
+    await handlePaymentSucceeded(eventData); // Reuse your payment handler logic
+
+  } catch (error) {
+    console.error("Error handling transaction completed event:", error);
+  }
+}
+
+// Handle payment succeeded event (reused from your original code)
 async function handlePaymentSucceeded(eventData) {
   try {
     // Extract payment details
