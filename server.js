@@ -44,8 +44,6 @@ async function handleSubscriptionCreated(eventData) {
 
     console.log(`Handling subscription created for customer: ${customerId}, subscription ID: ${subscriptionId}`);
 
-    // You can now use customerId and subscriptionId to interact with your database or Zoho API
-    // Add any additional processing or saving logic here if necessary
 
   } catch (error) {
     console.error("Error handling subscription created event:", error);
