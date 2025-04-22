@@ -74,24 +74,30 @@ async function handleTransactionCompleted(eventData) {
 // Handle payment succeeded event (reused from your original code)
 async function handlePaymentSucceeded(eventData) {
   try {
-    // Extract payment details
-    const customerEmail = eventData.email;
-    const amount = parseFloat(eventData.amount);
-    const currency = eventData.currency;
+    const data = eventData.data;
+
+    // Safely extract from nested structure
+    const customerId = data.customer_id;
+    const customerEmail = data.payments?.[0]?.billing_details?.email || "test@example.com"; // fallback if missing
+    const amount = data.items?.[0]?.amount || 0;
+    const currency = data.currency_code;
 
     console.log(`Processing payment for ${customerEmail}: ${amount} ${currency}`);
 
-    // Step 1: Check if the customer exists in Zoho Billing
-    const customerId = await getOrCreateCustomerInZoho(customerEmail);
+    if (!customerEmail) {
+      console.error("Missing customer email in transaction.completed payload");
+      return;
+    }
 
-    // Step 2: Create an invoice in Zoho Billing
-    await createInvoiceInZoho(customerId, amount, currency);
+    const zohoCustomerId = await getOrCreateCustomerInZoho(customerEmail);
+    await createInvoiceInZoho(zohoCustomerId, amount, currency);
 
     console.log("Invoice created in Zoho Billing successfully");
   } catch (error) {
     console.error("Error handling payment succeeded event:", error);
   }
 }
+
 
 // Get or Create Customer in Zoho Billing
 async function getOrCreateCustomerInZoho(email) {
