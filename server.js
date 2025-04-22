@@ -71,13 +71,13 @@ async function handleTransactionCompleted(eventData) {
   }
 }
 
-// Handle payment succeeded event (reused from your original code)
+// Handle payment succeeded event (reused from your original code
 async function handlePaymentSucceeded(eventData) {
   try {
     const data = eventData.data;
 
     const customerEmail = data.payments?.[0]?.billing_details?.email;
-    const amount = data.items?.[0]?.amount;
+    const amount = data.items?.[0]?.price?.unit_price?.amount;
     const currency = data.currency_code;
 
     if (!customerEmail || !amount || !currency) {
@@ -96,6 +96,7 @@ async function handlePaymentSucceeded(eventData) {
     console.error("❌ Error handling payment succeeded:", error);
   }
 }
+
 
 
 // Get or Create Customer in Zoho Billing
