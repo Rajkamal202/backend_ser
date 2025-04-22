@@ -2,7 +2,10 @@ const express = require("express");
 const axios = require("axios");
 const crypto = require("crypto");
 const app = express();
-app.use(express.json()); // Re-enable JSON parsing for easier access to eventData
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+// Re-enable JSON parsing for easier access to eventData
 
 // Paddle Sandbox Public Key (for verifying webhook signatures)
 const PADDLE_PUBLIC_KEY = process.env.PADDLE_PUBLIC_KEY; // Keep this for when you have it
@@ -31,7 +34,8 @@ const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN;
 app.post("/paddle-webhook", async (req, res) => {
   try {
     // const rawBody = req.body.toString("utf8");
-    const signature = req.headers["paddle-signature"];
+const signature = req.body.p_signature;
+
 
     console.log("Signature Header (for info):", signature);
     console.log("Webhook Body:", req.body); // Log the parsed JSON body
