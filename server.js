@@ -12,12 +12,12 @@ if (!PADDLE_PUBLIC_KEY || !ZOHO_BILLING_API_URL || !ZOHO_OAUTH_TOKEN) {
   throw new Error("Missing required environment variables");
 }
 
-// Capture raw body for signature verification
-const rawBodySaver = (req, res, buf) => {
-  if (buf && buf.length) {
-    req.rawBody = buf.toString("utf8");
+// Step 1: Capture raw JSON body
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString(); // Capture raw body
   }
-};
+}));
 
 app.use(
   "/paddle-webhook",
