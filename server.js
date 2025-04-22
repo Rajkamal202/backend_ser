@@ -1,9 +1,10 @@
 const express = require("express");
 const axios = require("axios");
 const crypto = require("crypto");
+
 const app = express();
 
-// Environment Variables (with checks)
+// 🌍 Load env variables
 const PADDLE_PUBLIC_KEY = process.env.PADDLE_PUBLIC_KEY;
 const ZOHO_BILLING_API_URL = process.env.ZOHO_BILLING_API_URL;
 const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN;
@@ -12,11 +13,9 @@ if (!PADDLE_PUBLIC_KEY || !ZOHO_BILLING_API_URL || !ZOHO_OAUTH_TOKEN) {
   throw new Error("Missing required environment variables");
 }
 
-// Capture raw body for signature verification
+// 🧠 Raw body middleware to capture Paddle webhook
 const rawBodySaver = (req, res, buf) => {
-  if (buf && buf.length) {
-    req.rawBody = buf.toString("utf8");
-  }
+  if (buf?.length) req.rawBody = buf.toString("utf8");
 };
 
 app.use(
@@ -24,69 +23,75 @@ app.use(
   express.raw({ type: "*/*", verify: rawBodySaver })
 );
 
-// Paddle Signature Verification
-function verifyPaddleSignature(rawPayload, signature) {
+// 🛡️ Signature Verification
+function verifyPaddleSignature(payload) {
+  const { p_signature, ...data } = payload;
+
+  // Sort the keys alphabetically
+  const sorted = Object.keys(data)
+    .sort()
+    .reduce((obj, key) => {
+      obj[key] = data[key];
+      return obj;
+    }, {});
+
+  // Serialize into a buffer (mimic PHP-style serialization)
+  const serialized = Object.values(sorted).map(String).join("");
+
+  const verifier = crypto.createVerify("sha1");
+  verifier.update(serialized);
+
   try {
-    const verifier = crypto.createVerify("sha1");
-    verifier.update(rawPayload, "utf8");
-    return verifier.verify(PADDLE_PUBLIC_KEY, signature, "base64");
+    return verifier.verify(PADDLE_PUBLIC_KEY, p_signature, "base64");
   } catch (error) {
-    console.error("Error verifying Paddle signature:", error);
+    console.error("🔒 Signature verification failed:", error);
     return false;
   }
 }
 
-// Webhook Endpoint
+// 🚪 Paddle Webhook
 app.post("/paddle-webhook", async (req, res) => {
   try {
-    const signature = req.body.p_signature;
+    const parsedBody = Object.fromEntries(new URLSearchParams(req.rawBody));
+    const isValid = verifyPaddleSignature(parsedBody);
 
-    const rawBody = req.rawBody;
-    const parsedBody = Object.fromEntries(new URLSearchParams(rawBody));
-
-    console.log("🔐 Received signature:", signature);
-    console.log("📦 Parsed Body:", parsedBody);
-
-    // Verify signature
-    const isValid = verifyPaddleSignature(rawBody, signature);
     if (!isValid) {
       console.warn("🚫 Invalid Paddle webhook signature");
       return res.status(403).send("Invalid signature");
     }
 
     const alertName = parsedBody.alert_name;
-    console.log(`📢 Event received: ${alertName}`);
+    console.log(`📢 Received event: ${alertName}`);
 
-    // Process supported event
     if (alertName === "payment_succeeded") {
       await handlePaymentSucceeded(parsedBody);
     } else {
-      console.log(`❓ Unhandled event type: ${alertName}`);
+      console.log(`ℹ️ Unhandled event: ${alertName}`);
     }
 
-    res.status(200).send("Webhook received");
+    res.status(200).send("OK");
   } catch (error) {
-    console.error("❌ Webhook processing error:", error);
-    res.status(500).send("Internal server error");
+    console.error("❌ Webhook error:", error);
+    res.status(500).send("Server error");
   }
 });
 
-// Handle payment succeeded
+// 💳 Payment Handler
 async function handlePaymentSucceeded(data) {
   const email = data.email;
   const amount = parseFloat(data.amount);
   const currency = data.currency;
   const plan = data.subscription_plan_name || "Subscription";
 
-  console.log(`💳 Payment succeeded: ${email}, ${amount} ${currency}`);
+  console.log(`💰 Payment from ${email} for ${amount} ${currency}`);
 
   const customerId = await getOrCreateCustomerInZoho(email);
   await createInvoiceInZoho(customerId, amount, currency, plan);
 
-  console.log("🧾 Invoice created successfully");
+  console.log("🧾 Invoice successfully created");
 }
 
-// Get or create customer in Zoho
+// 👤 Get/Create Zoho Customer
 async function getOrCreateCustomerInZoho(email) {
   try {
     const res = await axios.get("https://invoice.zoho.in/api/v3/customers", {
@@ -115,13 +120,13 @@ async function getOrCreateCustomerInZoho(email) {
     );
 
     return createRes.data.customer.customer_id;
-  } catch (error) {
-    console.error("⚠️ Customer fetch/create error:", error);
-    throw error;
+  } catch (err) {
+    console.error("❗ Zoho customer error:", err.response?.data || err);
+    throw err;
   }
 }
 
-// Create invoice in Zoho
+// 🧾 Create Invoice in Zoho
 async function createInvoiceInZoho(customerId, amount, currency, plan) {
   try {
     const res = await axios.post(
@@ -130,7 +135,7 @@ async function createInvoiceInZoho(customerId, amount, currency, plan) {
         customer_id: customerId,
         line_items: [
           {
-            name: `Paddle Payment - ${plan}`,
+            name: `Paddle - ${plan}`,
             rate: amount,
           },
         ],
@@ -144,14 +149,15 @@ async function createInvoiceInZoho(customerId, amount, currency, plan) {
       }
     );
 
-    console.log("🧾 Zoho Invoice:", res.data.invoice.invoice_number);
-  } catch (error) {
-    console.error("⚠️ Invoice creation error:", error.response?.data || error);
-    throw error;
+    console.log("✅ Invoice Number:", res.data.invoice.invoice_number);
+  } catch (err) {
+    console.error("❗ Zoho invoice error:", err.response?.data || err);
+    throw err;
   }
 }
 
+// 🚀 Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🟢 Server running on port ${PORT}`);
 });
