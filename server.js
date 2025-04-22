@@ -61,68 +61,87 @@ async function handleTransactionCompleted(eventData) {
 // --- NEW FUNCTION ---
 // Function to find an existing Zoho Contact by email or create a new one
 async function getZohoCustomerId(email) {
-  const ZOHO_CONTACTS_API_URL = "https://www.zohoapis.in/invoice/v3/contacts"; // Base URL for contacts
+  // Use the correct base URL for the India data center
+  const ZOHO_CONTACTS_API_URL = "https://www.zohoapis.in/invoice/v3/contacts";
+  const AUTH_HEADER = `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`;
+  const ORG_HEADER = { "X-com-zoho-invoice-organizationid": ZOHO_ORGANIZATION_ID };
 
   try {
     // --- STEP 1: Search for the contact by email ---
     console.log(`Searching for Zoho contact with email: ${email}`);
+    // Documentation suggests using 'email_contains' or 'email' as query param
+    // Let's try 'email' first as it's simpler for exact match.
     const searchResponse = await axios.get(ZOHO_CONTACTS_API_URL, {
       headers: {
-        Authorization: `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`,
-        "X-com-zoho-invoice-organizationid": ZOHO_ORGANIZATION_ID,
+        Authorization: AUTH_HEADER,
+        ...ORG_HEADER // Spread operator to include organization header
       },
       params: {
-        email: email // Parameter to search by email
+        email: email // Search parameter based on documentation examples
       }
     });
 
-    // Check the response structure based on Zoho docs
-    
-    // Assuming response.data.contacts is an array
+    // --- Check Search Response ---
+    // IMPORTANT: Verify the actual response structure from Zoho.
+    // Assuming the response has a 'contacts' array based on typical API patterns.
     if (searchResponse.data && searchResponse.data.contacts && searchResponse.data.contacts.length > 0) {
-      const customerId = searchResponse.data.contacts[0].contact_id; // Or customer_id, check Zoho docs!
+      // Assuming the ID field is 'contact_id'
+      const customerId = searchResponse.data.contacts[0].contact_id;
       console.log(`Found existing Zoho contact. ID: ${customerId}`);
       return customerId;
     } else {
       // --- STEP 2: Contact not found, create a new one ---
       console.log(`Contact not found for ${email}, creating new one...`);
-      // Consult Zoho docs for required fields. Minimally, name and email.
-      // Using email as name if no other name is available from Paddle.
-      const createPayload = {
-        contact_name: email, // Or use a name from Paddle if available
-        email: email,
-        // Add other fields as needed/required by Zoho
-      };
 
+      // Construct the payload for creating a contact.
+      // 'contact_name' is typically required. Using email as name if no other name is available.
+      const createPayload = {
+        contact_name: email, // You might want to get a real name from Paddle if possible
+        email: email,
+        // Add any other relevant fields here if needed, e.g., company_name
+        // payment_terms: 0, // Example: 'Due on Receipt'
+        // currency_id: 'ID_FOR_INR', // Might be needed if default isn't INR
+      };
+      console.log("Creating Zoho contact with payload:", JSON.stringify(createPayload));
+
+      // Use POST request with JSON body
       const createResponse = await axios.post(ZOHO_CONTACTS_API_URL, createPayload, {
         headers: {
-          Authorization: `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`,
-          "X-com-zoho-invoice-organizationid": ZOHO_ORGANIZATION_ID,
+          Authorization: AUTH_HEADER,
+          ...ORG_HEADER,
           "Content-Type": "application/json",
         }
       });
 
-      // Check response structure based on Zoho docs
-      // Assuming response.data.contact contains the new contact info
-      if (createResponse.data && createResponse.data.contact) {
-        const newCustomerId = createResponse.data.contact.contact_id; // Or customer_id, check Zoho docs!
+      // --- Check Create Response ---
+      // IMPORTANT: Verify the actual response structure from Zoho.
+      // Assuming the response has a 'contact' object with the ID.
+      if (createResponse.data && createResponse.data.contact && createResponse.data.contact.contact_id) {
+        const newCustomerId = createResponse.data.contact.contact_id;
         console.log(`Created new Zoho contact. ID: ${newCustomerId}`);
         return newCustomerId;
       } else {
-        console.error("Failed to create Zoho contact, unexpected response:", createResponse.data);
+        // Log the actual response if creation didn't return expected structure
+        console.error("Failed to create Zoho contact or parse response:", createResponse.data);
         return null;
       }
     }
   } catch (error) {
+    // Log detailed error information
     if (error.response) {
-        console.error("Error searching/creating Zoho contact:", error.response.status, error.response.data);
+      // Error from Zoho API (e.g., 4xx, 5xx)
+      console.error("Error searching/creating Zoho contact - Status:", error.response.status);
+      console.error("Error searching/creating Zoho contact - Data:", JSON.stringify(error.response.data));
+    } else if (error.request) {
+      // Request was made but no response received
+      console.error("Error searching/creating Zoho contact - No response received:", error.request);
     } else {
-        console.error("Error searching/creating Zoho contact:", error.message);
+      // Error setting up the request
+      console.error("Error searching/creating Zoho contact - Request setup error:", error.message);
     }
     return null; // Return null on error
   }
 }
-
 // Create Invoice in Zoho Billing (Modified)
 // Accepts customerId instead of customerEmail now
 async function createInvoiceInZoho(customerId, amount, currency) { // <-- Changed parameters
