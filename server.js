@@ -76,25 +76,24 @@ async function handlePaymentSucceeded(eventData) {
   try {
     const data = eventData.data;
 
-    // Safely extract from nested structure
-    const customerId = data.customer_id;
-    const customerEmail = data.payments?.[0]?.billing_details?.email || "test@example.com"; // fallback if missing
-    const amount = data.items?.[0]?.amount || 0;
+    const customerEmail = data.payments?.[0]?.billing_details?.email;
+    const amount = data.items?.[0]?.amount;
     const currency = data.currency_code;
 
-    console.log(`Processing payment for ${customerEmail}: ${amount} ${currency}`);
-
-    if (!customerEmail) {
-      console.error("Missing customer email in transaction.completed payload");
+    if (!customerEmail || !amount || !currency) {
+      console.error("❌ Missing customerEmail / amount / currency");
+      console.error({ customerEmail, amount, currency });
       return;
     }
 
-    const zohoCustomerId = await getOrCreateCustomerInZoho(customerEmail);
-    await createInvoiceInZoho(zohoCustomerId, amount, currency);
+    console.log(`✅ Processing payment for ${customerEmail}: ${amount} ${currency}`);
 
-    console.log("Invoice created in Zoho Billing successfully");
+    const customerId = await getOrCreateCustomerInZoho(customerEmail);
+    await createInvoiceInZoho(customerId, amount, currency);
+
+    console.log("✅ Invoice created in Zoho Billing successfully");
   } catch (error) {
-    console.error("Error handling payment succeeded event:", error);
+    console.error("❌ Error handling payment succeeded:", error);
   }
 }
 
