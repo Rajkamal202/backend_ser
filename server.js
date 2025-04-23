@@ -5,11 +5,9 @@ require('dotenv').config();
 
 app.use(express.json());
 
-
 const ZOHO_BILLING_API_URL = process.env.ZOHO_BILLING_API_URL; 
 const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN; 
 const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID;
-
 
 async function getZohoCustomerId(email) {
   const ZOHO_CONTACTS_API_URL = "https://www.zohoapis.in/invoice/v3/contacts"; 
@@ -28,7 +26,6 @@ async function getZohoCustomerId(email) {
         email: email
       }
     });
-
   
     if (searchResponse.data && searchResponse.data.contacts && searchResponse.data.contacts.length > 0) {
       const customerId = searchResponse.data.contacts[0].contact_id;
@@ -44,7 +41,7 @@ async function getZohoCustomerId(email) {
       console.log("Creating Zoho contact with payload:", JSON.stringify(createPayload));
 
       try {
-        // --- Try to create the contact ---
+        // Try to create the contact 
         const createResponse = await axios.post(ZOHO_CONTACTS_API_URL, createPayload, {
           headers: {
             Authorization: AUTH_HEADER,
@@ -113,7 +110,7 @@ async function getZohoCustomerId(email) {
   }
 }
 
-// --- Function to Email an Existing Invoice ---
+//  Function to Email an Existing Invoice
 async function emailZohoInvoice(invoiceId, recipientEmail) {
   if (!invoiceId || !recipientEmail) {
     console.error("Cannot email invoice: Missing invoiceId or recipientEmail.");
@@ -128,9 +125,9 @@ async function emailZohoInvoice(invoiceId, recipientEmail) {
     console.log(`Attempting to email invoice ${invoiceId} to ${recipientEmail}`);
 
     const emailPayload = {
-       to_mail_ids: [recipientEmail], // <<< Ensure email is in an array
-       subject: "Your Invoice from Autobot", // <<< CUSTOMIZE YOUR SUBJECT
-       body: "Thank you for your business! <br><br>Please find your invoice attached.<br><br>Regards,<br>Autobot Team" // <<< CUSTOMIZE YOUR BODY
+       to_mail_ids: [recipientEmail], 
+       subject: "Your Invoice from Autobot",
+       body: "Thank you for your business! <br><br>Please find your invoice attached.<br><br>Regards,<br>Autobot Team" 
     };
     console.log("Sending Email Payload:", JSON.stringify(emailPayload));
 
@@ -153,14 +150,14 @@ async function emailZohoInvoice(invoiceId, recipientEmail) {
   }
 }
 
-// --- Create Invoice in Zoho (Creates Draft, returns ID) ---
+//  Create Invoice in Zoho (Creates Draft, returns ID)
 async function createInvoiceInZoho(customerId, amount, currency) {
-  let createdInvoiceId = null; // Variable to store the ID
+  let createdInvoiceId = null; 
   try {
-    const url = process.env.ZOHO_BILLING_API_URL; // Base URL WITHOUT ?send=true
+    const url = process.env.ZOHO_BILLING_API_URL; 
 
     const invoiceData = {
-      customer_id: customerId, // Use the customerId passed in
+      customer_id: customerId, 
       line_items: [
         {
           name: "Subscription Payment", 
@@ -207,18 +204,17 @@ async function handleTransactionCompleted(eventData) {
   try {
     const transactionId = eventData.data.id;
 
-    // --- UPDATED Amount Extraction ---
+    // UPDATED Amount Extraction
     let amountFromPaddle = undefined;
     let amount = 0;
-    // Check if payments array exists and has elements
+    // Check if payments array exists and has elemen
     if (eventData.data.payments && eventData.data.payments.length > 0) {
-      amountFromPaddle = eventData.data.payments[0].amount; // Get amount string
-      console.log(`Raw amount string from Paddle: "${amountFromPaddle}"`); // Log the raw string
+      amountFromPaddle = eventData.data.payments[0].amount; 
+      console.log(`Raw amount string from Paddle: "${amountFromPaddle}"`); 
       if (amountFromPaddle) {
-        // Convert string to number (integer - assuming smallest unit like paise)
         const amountInSmallestUnit = parseInt(amountFromPaddle, 10);
         if (!isNaN(amountInSmallestUnit)) {
-           // <<< CHECK THIS DIVISION! >>> Divide by 100.0 to get main unit (e.g., Rupees)
+          
            amount = amountInSmallestUnit / 100.0;
         } else {
            console.error(`Could not parse amount string: "${amountFromPaddle}"`);
