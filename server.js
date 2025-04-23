@@ -5,12 +5,11 @@ require('dotenv').config();
 
 app.use(express.json());
 
-// Zoho Billing API Configuration
+
 const ZOHO_BILLING_API_URL = process.env.ZOHO_BILLING_API_URL;
 const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN;
 const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID; // Ensure this is set
 
-// Webhook Endpoint
 app.post("/paddle-webhook", async (req, res) => {
   try {
     const eventData = req.body;
@@ -32,7 +31,7 @@ app.post("/paddle-webhook", async (req, res) => {
 });
 
 
-// Handle transaction completed event
+
 async function handleTransactionCompleted(eventData) {
   try {
     const transactionId = eventData.data.id;
@@ -57,7 +56,7 @@ async function handleTransactionCompleted(eventData) {
   }
 }
 
-// --- UPDATED FUNCTION ---
+
 // Function to find an existing Zoho Contact by email or create a new one
 async function getZohoCustomerId(email) {
   const ZOHO_CONTACTS_API_URL = "https://www.zohoapis.in/invoice/v3/contacts";
@@ -65,7 +64,7 @@ async function getZohoCustomerId(email) {
   const ORG_HEADER = { "X-com-zoho-invoice-organizationid": ZOHO_ORGANIZATION_ID };
 
   try {
-    // --- STEP 1: Search for the contact by email ---
+    // Search for the contact by email
     console.log(`Searching for Zoho contact with email: ${email}`);
     const searchResponse = await axios.get(ZOHO_CONTACTS_API_URL, {
       headers: {
@@ -80,7 +79,7 @@ async function getZohoCustomerId(email) {
       console.log(`Found existing Zoho contact. ID: ${customerId}`);
       return customerId;
     } else {
-      // --- STEP 2: Contact not found, attempt to create ---
+      // Contact not found, attempt to create
       console.log(`Contact not found for ${email}, attempting to create...`);
       const createPayload = {
         contact_name: email,
@@ -89,7 +88,7 @@ async function getZohoCustomerId(email) {
       console.log("Creating Zoho contact with payload:", JSON.stringify(createPayload));
 
       try {
-        // --- Try to create the contact ---
+        // Try to create the contact
         const createResponse = await axios.post(ZOHO_CONTACTS_API_URL, createPayload, {
           headers: {
             Authorization: AUTH_HEADER,
@@ -107,9 +106,8 @@ async function getZohoCustomerId(email) {
           return null;
         }
       } catch (createError) {
-        // --- Handle potential creation errors ---
+        
         if (createError.response && createError.response.status === 400 && createError.response.data && createError.response.data.code === 3062) {
-          // --- SPECIFIC HANDLING FOR ERROR 3062 (Already Exists) ---
           console.log("Contact creation failed because it already exists (Code 3062). Re-searching...");
           // Contact was likely created by a concurrent request. Search again to get the ID.
           try {
@@ -158,23 +156,23 @@ async function getZohoCustomerId(email) {
 async function createInvoiceInZoho(customerId, amount, currency) { // <-- Changed parameters
   try {
     const invoiceData = {
-      customer_id: customerId, // <-- Use the customerId passed in
+      customer_id: customerId, 
       line_items: [
         {
           name: "Subscription Payment",
-          rate: amount, // Make sure 'amount' is defined and has the correct value
-          quantity: 1 // Quantity is often required
+          rate: amount, 
+          quantity: 1
         },
       ],
       currency_code: currency,
     };
-    console.log("Sending data to Zoho Invoice:", JSON.stringify(invoiceData)); // Log the data
-    console.log("Using Access Token:", ZOHO_OAUTH_TOKEN); // Log the token being used
-    console.log("Using Org ID:", ZOHO_ORGANIZATION_ID); // Log the Org ID
+    console.log("Sending data to Zoho Invoice:", JSON.stringify(invoiceData)); 
+    console.log("Using Access Token:", ZOHO_OAUTH_TOKEN);
+    console.log("Using Org ID:", ZOHO_ORGANIZATION_ID); 
 
     const response = await axios.post(
-      ZOHO_BILLING_API_URL, // Make sure this is https://www.zohoapis.in/invoice/v3/invoices
-      invoiceData,          // Use the prepared data object
+      ZOHO_BILLING_API_URL, 
+      invoiceData,         
       {
         headers: {
           Authorization: `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`,
