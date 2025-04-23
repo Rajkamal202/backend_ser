@@ -36,10 +36,11 @@ app.post("/paddle-webhook", async (req, res) => {
 async function handleTransactionCompleted(eventData) {
   try {
     const transactionId = eventData.data.id;
-    const amount = eventData.data.items[0].amount;
+    onst amount = eventData.data.items[0].price.amount;
     const currency = eventData.data.currency_code;
-    const customerEmail = eventData.data.payments?.[0]?.billing_details?.email || "raop4903@gmail.com";
+    const customerEmail = eventData.data.payments?.[0]?.billing_details?.email || "testuser@fallback.com";
 
+    console.log(`Extracted Amount: ${amount}, Currency: ${currency}`); // <-- Add this log
     console.log(`Handling transaction completed for customer: ${customerEmail}, transaction ID: ${transactionId}`);
     const customerId = await getZohoCustomerId(customerEmail);
     
