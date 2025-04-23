@@ -33,6 +33,7 @@ app.post("/paddle-webhook", async (req, res) => {
 
 
 async function handleTransactionCompleted(eventData) {
+  console.log("Full Paddle Event Data:", JSON.stringify(eventData, null, 2));
   try {
     const transactionId = eventData.data.id;
     const amount = eventData.data.items[0].price.amount;
