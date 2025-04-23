@@ -136,7 +136,7 @@ async function emailZohoInvoice(invoiceId, recipientEmail) {
     // Construct payload based on Zoho documentation example for this endpoint
     // Requires 'to_mail_ids' (array), 'subject', and 'body'
     const emailPayload = {
-       to_mail_ids: [rajkamalds2022@gmail.com],
+       to_mail_ids: 'rajkamalds2022@gmail.com',
        subject: "Your Invoice from Autobot", // <<< CUSTOMIZE YOUR SUBJECT
        body: "Thank you for your business! <br><br>Please find your invoice attached.<br><br>Regards,<br>Autobot Team" // <<< CUSTOMIZE YOUR BODY
     };
