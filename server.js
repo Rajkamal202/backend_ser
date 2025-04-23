@@ -38,13 +38,11 @@ async function handleTransactionCompleted(eventData) {
     const transactionId = eventData.data.id;
     const amount = eventData.data.items[0].amount;
     const currency = eventData.data.currency_code;
-    const customerEmail = eventData.data.payments?.[0]?.billing_details?.email || "testuser@fallback.com";
+    const customerEmail = eventData.data.payments?.[0]?.billing_details?.email || "raop4903@gmail.com";
 
     console.log(`Handling transaction completed for customer: ${customerEmail}, transaction ID: ${transactionId}`);
-
-    // --- NEW: Get Zoho Customer ID ---
     const customerId = await getZohoCustomerId(customerEmail);
-    // --- END NEW ---
+    
 
     if (customerId) {
       // Pass customerId INSTEAD of customerEmail to createInvoiceInZoho
@@ -58,7 +56,6 @@ async function handleTransactionCompleted(eventData) {
   }
 }
 
-// --- NEW FUNCTION ---
 // Function to find an existing Zoho Contact by email or create a new one
 async function getZohoCustomerId(email) {
   // Use the correct base URL for the India data center
@@ -69,8 +66,6 @@ async function getZohoCustomerId(email) {
   try {
     // --- STEP 1: Search for the contact by email ---
     console.log(`Searching for Zoho contact with email: ${email}`);
-    // Documentation suggests using 'email_contains' or 'email' as query param
-    // Let's try 'email' first as it's simpler for exact match.
     const searchResponse = await axios.get(ZOHO_CONTACTS_API_URL, {
       headers: {
         Authorization: AUTH_HEADER,
