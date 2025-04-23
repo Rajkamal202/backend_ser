@@ -153,26 +153,31 @@ async function getZohoCustomerId(email) {
     return null;
   }
 }
-async function createInvoiceInZoho(customerId, amount, currency) { // <-- Changed parameters
+async function createInvoiceInZoho(customerId, amount, currency) {
   try {
+    // --- Construct the URL WITH the send parameter ---
+    const url = `${process.env.ZOHO_BILLING_API_URL}?send=true`; // Append ?send=true
+
     const invoiceData = {
-      customer_id: customerId, 
+      customer_id: customerId,
       line_items: [
         {
           name: "Subscription Payment",
-          rate: amount, 
+          rate: amount,
           quantity: 1
         },
       ],
       currency_code: currency,
     };
-    console.log("Sending data to Zoho Invoice:", JSON.stringify(invoiceData)); 
-    console.log("Using Access Token:", ZOHO_OAUTH_TOKEN);
-    console.log("Using Org ID:", ZOHO_ORGANIZATION_ID); 
+    console.log("Sending data to Zoho Invoice:", JSON.stringify(invoiceData));
+    console.log("Calling URL:", url); // Log the URL being called
+    console.log("Using Access Token:", ZOHO_OAUTH_TOKEN ? ZOHO_OAUTH_TOKEN.substring(0, 15) + '...' : 'undefined');
+    console.log("Using Org ID:", ZOHO_ORGANIZATION_ID);
 
+    // --- Use the modified URL in the axios call ---
     const response = await axios.post(
-      ZOHO_BILLING_API_URL, 
-      invoiceData,         
+      url, // Use the URL with ?send=true
+      invoiceData,
       {
         headers: {
           Authorization: `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`,
@@ -182,12 +187,15 @@ async function createInvoiceInZoho(customerId, amount, currency) { // <-- Change
       }
     );
 
-    console.log("Invoice created:", response.data.invoice.invoice_number);
+    // Check the response message - successful sending usually indicated here
+    console.log("Invoice Creation Response:", response.data.message); // e.g., "Invoice created and sent successfully."
+    console.log("Invoice created, Number:", response.data.invoice.invoice_number);
+
   } catch (error) {
     if (error.response) {
-        console.error("Error creating invoice in Zoho:", error.response.status, error.response.data);
+        console.error("Error creating/sending invoice in Zoho - Status:", error.response.status, "Data:", JSON.stringify(error.response.data));
     } else {
-        console.error("Error creating invoice in Zoho:", error.message);
+        console.error("Error creating/sending invoice in Zoho:", error.message);
     }
   }
 }
