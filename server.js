@@ -154,7 +154,8 @@ async function getZohoCustomerId(email) {
     return null;
   }
 }
-async function createInvoiceInZoho(customerId, amount, currency) {
+async function createInvoiceInZoho(customerId, amount, currency, customerEmail) {
+
   try {
     // --- Construct the URL WITH the send parameter ---
     const url = `${process.env.ZOHO_BILLING_API_URL}?send=true`; // Append ?send=true
@@ -168,7 +169,8 @@ async function createInvoiceInZoho(customerId, amount, currency) {
           quantity: 1
         },
       ],
-      currency_code: currency,
+      currency_code: "INR",
+      email: customerEmail,
     };
     console.log("Sending data to Zoho Invoice:", JSON.stringify(invoiceData));
     console.log("Calling URL:", url); // Log the URL being called
