@@ -36,7 +36,7 @@ app.post("/paddle-webhook", async (req, res) => {
 async function handleTransactionCompleted(eventData) {
   try {
     const transactionId = eventData.data.id;
-    onst amount = eventData.data.items[0].price.amount;
+    const amount = eventData.data.items[0].price.amount;
     const currency = eventData.data.currency_code;
     const customerEmail = eventData.data.payments?.[0]?.billing_details?.email || "testuser@fallback.com";
 
