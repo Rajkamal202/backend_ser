@@ -62,7 +62,7 @@ async function getZohoCustomerId(email) {
           console.log(`Created new Zoho contact. ID: ${newCustomerId}`);
           return newCustomerId;
         } else {
-          console.error("Failed to create Zoho contact, unexpected response:", createResponse.data);
+          console.error("Failed to create Zoho contact, unexpected response:", JSON.stringify(createResponse.data)); // Log full response
           return null;
         }
       } catch (createError) {
@@ -136,7 +136,7 @@ async function emailZohoInvoice(invoiceId, recipientEmail) {
     // Construct payload based on Zoho documentation example for this endpoint
     // Requires 'to_mail_ids' (array), 'subject', and 'body'
     const emailPayload = {
-       to_mail_ids: 'rajkamalds2022@gmail.com',
+       to_mail_ids: [recipientEmail], // <<< Ensure email is in an array
        subject: "Your Invoice from Autobot", // <<< CUSTOMIZE YOUR SUBJECT
        body: "Thank you for your business! <br><br>Please find your invoice attached.<br><br>Regards,<br>Autobot Team" // <<< CUSTOMIZE YOUR BODY
     };
@@ -176,7 +176,7 @@ async function createInvoiceInZoho(customerId, amount, currency) {
           quantity: 1
         },
       ],
-      currency_code: currency,
+      currency_code: currency, // Use currency from Paddle data
     };
     console.log("Sending data to Zoho Invoice:", JSON.stringify(invoiceData));
     console.log("Calling URL:", url);
@@ -197,7 +197,7 @@ async function createInvoiceInZoho(customerId, amount, currency) {
        console.log("Invoice Creation Response:", response.data.message); // e.g., "The invoice has been created."
        console.log("Invoice created, Number:", response.data.invoice.invoice_number, "ID:", createdInvoiceId);
     } else {
-       console.error("Invoice created but ID not found in response", response.data);
+       console.error("Invoice created but ID not found in response", JSON.stringify(response.data)); // Log full response
     }
 
   } catch (error) {
@@ -243,7 +243,7 @@ async function handleTransactionCompleted(eventData) {
 
     const currency = eventData.data.currency_code;
     // Use email from payments[0].billing_details.email if available, otherwise fallback
-    const customerEmail = eventData.data.payments?.[0]?.billing_details?.email || "raop4903@gmail.com"; // Default email update based on log
+    const customerEmail = eventData.data.payments?.[0]?.billing_details?.email || "raop4903@gmail.com"; // Using the email from your logs
 
     console.log(`Using Amount for Zoho: ${amount}, Currency: ${currency}`); // Log final amount used
     if (amount === 0) {
