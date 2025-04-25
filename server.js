@@ -249,7 +249,7 @@ async function handleTransactionCompleted(eventData) {
     // eventData.data.customer?.name
     // eventData.data.billing_details?.name
     // Combine first/last name fields if necessary
-    const actualCustomerName = eventData.data.customer?.name || fallback@gmail.com; // <<< GUESSING - CHECK YOUR LOGS! Fallback to email.
+    const actualCustomerName = eventData.data.customer?.name || customerEmail; // <<< GUESSING - CHECK YOUR LOGS! Fallback to email.
     console.log(`Extracted name using 'data.customer.name' (fallback to email): ${actualCustomerName}`); // Log what was extracted
     const customerName = actualCustomerName;
 
