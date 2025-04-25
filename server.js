@@ -1,4 +1,3 @@
-// Main application code (e.g., server.js)
 const express = require("express");
 const axios = require("axios");
 const app = express();
