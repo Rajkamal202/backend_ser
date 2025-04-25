@@ -196,7 +196,62 @@ async function emailZohoInvoice(invoiceId, recipientEmail) {
   }
 }
 
+/**
+ * Fetches customer details from Paddle API using customer ID.
+ * @param {string} paddleCustomerId - The Paddle Customer ID (e.g., ctm_...).
+ * @returns {Promise<{email: string, name: string}|null>} Object with email/name or null.
+ */
+async function getPaddleCustomerDetails(paddleCustomerId) {
+    // --- Get Paddle API Key from environment variables ---
+    const PADDLE_API_KEY = process.env.PADDLE_API_KEY;
+    const PADDLE_API_BASE_URL = "https://api.paddle.com"; // Standard Paddle API URL
 
+    if (!paddleCustomerId) {
+        console.error("getPaddleCustomerDetails: Paddle Customer ID is required.");
+        return null;
+    }
+    if (!PADDLE_API_KEY) {
+        console.error("getPaddleCustomerDetails: PADDLE_API_KEY environment variable not set.");
+        return null;
+    }
+
+    // Verify this endpoint in Paddle API docs (/customers/{id})
+    const PADDLE_CUSTOMER_URL = `<span class="math-inline">\{PADDLE\_API\_BASE\_URL\}/customers/</span>{paddleCustomerId}`;
+    console.log(`Workspaceing Paddle customer details from: ${PADDLE_CUSTOMER_URL}`);
+
+    try {
+        const response = await axios.get(PADDLE_CUSTOMER_URL, {
+            headers: {
+                // Ensure correct Authentication header format for Paddle API
+                'Authorization': `Bearer ${PADDLE_API_KEY}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        // ** VERIFY these paths in Paddle API documentation for customer object **
+        // Adjust '.data.email' and '.data.name' if Paddle's response structure is different
+        const email = response.data?.data?.email;
+        const name = response.data?.data?.name;
+
+        if (!email) {
+             console.warn(`getPaddleCustomerDetails: Email not found in Paddle response for customer ${paddleCustomerId}. Response Data:`, JSON.stringify(response.data));
+             // Decide if you want to return null or an object without email
+        }
+
+        console.log(`Successfully fetched Paddle details for ${paddleCustomerId}. Email: ${email}, Name: ${name}`);
+        // Return extracted details (name might be null)
+        return { email, name };
+
+    } catch (error) {
+        console.error(`Error fetching Paddle customer details for ${paddleCustomerId}`);
+        if (error.response) {
+           console.error("Paddle API Error - Status:", error.response.status, "Data:", JSON.stringify(error.response.data));
+        } else {
+           console.error("Paddle API Error:", error.message);
+        }
+        return null; // Return null on error
+    }
+}
 /**
  * Handles the 'transaction.completed' event from Paddle.
  * @param {object} eventData - The full event data from Paddle webhook.
