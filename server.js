@@ -140,7 +140,6 @@ async function emailZohoInvoice(invoiceId, recipientEmail) {
     console.error("Cannot email invoice: Missing invoiceId or recipientEmail.");
     return;
   }
-  // Use correct API endpoint for your region/product (assuming US sandbox Invoice)
   const ZOHO_EMAIL_API_URL = `${ZOHO_API_BASE_URL}/invoice/v3/invoices/${invoiceId}/email`;
   const AUTH_HEADER = `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`;
   const ORG_HEADER = { "X-com-zoho-invoice-organizationid": ZOHO_ORGANIZATION_ID };
@@ -149,7 +148,7 @@ async function emailZohoInvoice(invoiceId, recipientEmail) {
     console.log(`Attempting to email invoice ${invoiceId} to ${recipientEmail}`);
     const emailPayload = {
         to_mail_ids: [recipientEmail],
-        subject: "Your Invoice from Autobot", // Customize subject
+        subject: "Your Invoice from Autobot", 
         body: "Thank you for your business! <br><br>Please find your invoice attached.<br><br>Regards,<br>Autobot Team" // Customize body
     };
     console.log("Sending Email Payload:", JSON.stringify(emailPayload));
@@ -251,7 +250,7 @@ async function handleTransactionCompleted(eventData) {
         return; // Stop processing if email is missing from Paddle API response
     }
 
-    // --- Step 3: Use Fetched Details ---
+    // Use Fetched Details ---
     const customerEmail = customerDetails.email;
     // Use fetched name from Paddle API, fallback to the email if name wasn't returned/available
     const customerName = customerDetails.name || customerEmail;
@@ -282,7 +281,6 @@ async function handleTransactionCompleted(eventData) {
     }
 
     const zohoCustomerId = await getZohoCustomerId(customerEmail, customerName);
-
     if (zohoCustomerId) {
       const invoiceId = await createInvoiceInZoho(zohoCustomerId, amount, currency);
       if (invoiceId) {
@@ -295,32 +293,23 @@ async function handleTransactionCompleted(eventData) {
     } else {
       console.error(`Could not find or create Zoho customer for ${customerEmail}. Invoice not created for TxID ${transactionId}.`);
     }
-
   } catch (error) {
     console.error("Error in handleTransactionCompleted:", error);
   }
 }
 
-
 app.post("/paddle-webhook", async (req, res) => {
-  // Add a log to confirm the endpoint is hit
+ 
   console.log(`--- PADDLE WEBHOOK ENDPOINT HIT at ${new Date().toISOString()} ---`);
   try {
     const eventData = req.body;
-
-    // !! IMPORTANT: Log the raw incoming data to verify paths !!
     console.log(">>> Paddle Webhook Received Data:", JSON.stringify(eventData, null, 2));
-
-    const eventType = eventData?.event_type; // Use optional chaining
+    const eventType = eventData?.event_type;
     console.log(`Received Paddle event type: ${eventType}`);
-
     if (eventType === "transaction.completed") {
-      // Process async but send response quickly
       handleTransactionCompleted(eventData).catch(err => {
           console.error("Error processing transaction completed handler:", err);
-          // Optionally add monitoring/alerting here
       });
-      // Respond immediately to Paddle
       res.status(200).send("Webhook received successfully, processing initiated.");
 
     } else {
