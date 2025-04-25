@@ -1,3 +1,4 @@
+// Main application code (e.g., server.js)
 const express = require("express");
 const axios = require("axios");
 const app = express();
@@ -5,43 +6,56 @@ require('dotenv').config();
 
 app.use(express.json());
 
-const ZOHO_BILLING_API_URL = process.env.ZOHO_BILLING_API_URL; 
-const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN; 
-const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID;
+// --- Configuration - Ensure these are set for your SANDBOX environment ---
+// Base URL for Zoho Invoice/Books API calls (Sandbox, US Datacenter assumed)
+const ZOHO_API_BASE_URL = "https://sandbox.zohoapis.com"; // Use .com for US, .in for India etc.
+const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN; // Use a valid SANDBOX Access Token (consider refresh logic for real use)
+const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID; // Use your SANDBOX Org ID
 
-async function getZohoCustomerId(email) {
-  const ZOHO_CONTACTS_API_URL = "https://www.zohoapis.in/invoice/v3/contacts"; 
+// --- Helper Functions ---
+
+/**
+ * Gets Zoho Customer ID by email. Creates contact if not found.
+ * @param {string} email - Customer's email.
+ * @param {string} name - Customer's name (used if creating contact).
+ * @returns {Promise<string|null>} Customer ID or null if error.
+ */
+async function getZohoCustomerId(email, name) {
+  // Use correct API endpoint for your region/product (assuming US sandbox Invoice)
+  const ZOHO_CONTACTS_API_URL = `${ZOHO_API_BASE_URL}/invoice/v3/contacts`;
   const AUTH_HEADER = `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`;
   const ORG_HEADER = { "X-com-zoho-invoice-organizationid": ZOHO_ORGANIZATION_ID };
 
+  if (!email) {
+      console.error("getZohoCustomerId: Email is required.");
+      return null;
+  }
+  // Use email as name if name is not provided
+  const contactName = name || email;
+
   try {
-  
     console.log(`Searching for Zoho contact with email: ${email}`);
     const searchResponse = await axios.get(ZOHO_CONTACTS_API_URL, {
       headers: {
         Authorization: AUTH_HEADER,
-        ...ORG_HEADER 
+        ...ORG_HEADER
       },
-      params: {
-        email: email
-      }
+      params: { email: email }
     });
-  
-    if (searchResponse.data && searchResponse.data.contacts && searchResponse.data.contacts.length > 0) {
+
+    if (searchResponse.data?.contacts?.length > 0) {
       const customerId = searchResponse.data.contacts[0].contact_id;
       console.log(`Found existing Zoho contact. ID: ${customerId}`);
       return customerId;
     } else {
-      console.log(`Contact not found for ${email}, attempting to create...`);
+      console.log(`Contact not found for ${email}, attempting to create with name: ${contactName}...`);
       const createPayload = {
-        contact_name: email,
+        contact_name: contactName, // Use the provided name
         email: email,
-        
       };
-      console.log("Creating Zoho contact with payload:", JSON.stringify(createPayload));
+      console.log("Creating Zoho contact payload:", JSON.stringify(createPayload));
 
       try {
-        // Try to create the contact 
         const createResponse = await axios.post(ZOHO_CONTACTS_API_URL, createPayload, {
           headers: {
             Authorization: AUTH_HEADER,
@@ -50,158 +64,128 @@ async function getZohoCustomerId(email) {
           }
         });
 
-        if (createResponse.data && createResponse.data.contact && createResponse.data.contact.contact_id) {
+        if (createResponse.data?.contact?.contact_id) {
           const newCustomerId = createResponse.data.contact.contact_id;
           console.log(`Created new Zoho contact. ID: ${newCustomerId}`);
           return newCustomerId;
         } else {
-          console.error("Failed to create Zoho contact, unexpected response:", JSON.stringify(createResponse.data)); // Log full response
+          console.error("Failed to create Zoho contact, unexpected response:", JSON.stringify(createResponse.data));
           return null;
         }
       } catch (createError) {
-        if (createError.response && createError.response.status === 400 && createError.response.data && createError.response.data.code === 3062) {
-
-          console.log("Contact creation failed because it already exists (Code 3062). Waiting 2s before re-searching...");
-
-          // Add Delay
-          await new Promise(resolve => setTimeout(resolve, 2000)); 
-
-          console.log("Re-searching after delay...");
-          try {
-            // Second search attempt
-            const secondSearchResponse = await axios.get(ZOHO_CONTACTS_API_URL, {
-              headers: { Authorization: AUTH_HEADER, ...ORG_HEADER },
-              params: { email: email }
-            });
-
-            if (secondSearchResponse.data && secondSearchResponse.data.contacts && secondSearchResponse.data.contacts.length > 0) {
-              const existingCustomerId = secondSearchResponse.data.contacts[0].contact_id;
-              console.log(`Found existing Zoho contact on second search. ID: ${existingCustomerId}`);
-              return existingCustomerId;
-            } else {
-              console.error("Contact reported as existing (3062), but not found on second search for email:", email);
-              return null;
-            }
-          } catch (secondSearchError) {
-             if (secondSearchError.response) {
-                console.error("Error during second search - Status:", secondSearchError.response.status, "Data:", JSON.stringify(secondSearchError.response.data));
-             } else {
-                console.error("Error during second search:", secondSearchError.message);
-             }
-             return null;
-          }
+        // Simplified error handling for creation
+        if (createError.response) {
+           console.error("Error creating Zoho contact - Status:", createError.response.status, "Data:", JSON.stringify(createError.response.data));
         } else {
-          if (createError.response) {
-            console.error("Error creating Zoho contact - Status:", createError.response.status, "Data:", JSON.stringify(createError.response.data));
-          } else {
-            console.error("Error creating Zoho contact:", createError.message);
-          }
-          return null;
+           console.error("Error creating Zoho contact:", createError.message);
         }
+        // Note: Removed the complex re-search logic for simplicity, might need it back later
+        return null;
       }
     }
   } catch (searchError) {
     if (searchError.response) {
-       console.error("Error during initial search - Status:", searchError.response.status, "Data:", JSON.stringify(searchError.response.data));
+       console.error("Error during contact search - Status:", searchError.response.status, "Data:", JSON.stringify(searchError.response.data));
     } else {
-       console.error("Error during initial search:", searchError.message);
+       console.error("Error during contact search:", searchError.message);
     }
     return null;
   }
 }
-// Function to Record Payment against a Zoho Invoice
-async function recordZohoPayment(customerId, invoiceId, paymentAmount, paymentDate, paddleTransactionId) {
 
-  const ZOHO_PAYMENT_ACCOUNT_ID = process.env.ZOHO_PAYMENT_ACCOUNT_ID;
-  
-
-  if (!ZOHO_PAYMENT_ACCOUNT_ID) {
-      console.error("Error: ZOHO_PAYMENT_ACCOUNT_ID is not set in environment variables.");
-      return false; // Indicate failure
-  }
-
-  if (!invoiceId || !customerId || paymentAmount <= 0) {
-     console.error("Cannot record payment: Missing invoiceId, customerId, or invalid amount.");
-     return false;
-  }
-
-  const ZOHO_PAYMENTS_API_URL = "https://www.zohoapis.in/invoice/v3/customerpayments";
+/**
+ * Creates an invoice (as Draft) in Zoho.
+ * @param {string} customerId - Zoho Customer ID.
+ * @param {number} amount - Invoice amount.
+ * @param {string} currency - Currency code (e.g., "USD", "INR").
+ * @returns {Promise<string|null>} Invoice ID or null if error.
+ */
+async function createInvoiceInZoho(customerId, amount, currency) {
+  let createdInvoiceId = null;
+  // Use correct API endpoint for your region/product (assuming US sandbox Invoice)
+  const ZOHO_INVOICES_API_URL = `${ZOHO_API_BASE_URL}/invoice/v3/invoices`;
   const AUTH_HEADER = `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`;
   const ORG_HEADER = { "X-com-zoho-invoice-organizationid": ZOHO_ORGANIZATION_ID };
 
   try {
-    const paymentData = {
+    const invoiceData = {
       customer_id: customerId,
-      payment_mode: "Paddle", // Make sure 'Paddle' exists as a Payment Mode in Zoho Settings or use another appropriate one
-      amount: paymentAmount,
-      date: paymentDate, // Expecting YYYY-MM-DD format
-      reference_number: paddleTransactionId, // Store Paddle Transaction ID here
-      account_id: ZOHO_PAYMENT_ACCOUNT_ID,  // Where the money goes in Zoho's books
-      invoices: [
+      line_items: [
         {
-          invoice_id: invoiceId,
-          amount_applied: paymentAmount // Apply the full amount to this invoice
-        }
-      ]
+          // Consider making this more dynamic if Paddle provides product info
+          name: "Subscription Payment",
+          description: "Payment processed via Paddle.", // Optional description
+          rate: amount,
+          quantity: 1
+        },
+      ],
+      currency_code: currency,
+      // Optionally set due date, terms etc.
+      // due_date: new Date().toISOString().split('T')[0] // Example: Due today
     };
+    console.log("Sending data to Zoho Invoice:", JSON.stringify(invoiceData));
+    console.log("Calling URL:", ZOHO_INVOICES_API_URL);
+    // console.log("Using Access Token:", ZOHO_OAUTH_TOKEN ? ZOHO_OAUTH_TOKEN.substring(0, 10) + '...' : 'undefined'); // Log part of token if debugging
+    console.log("Using Org ID:", ZOHO_ORGANIZATION_ID);
 
-    console.log(`Attempting to record payment for invoice ${invoiceId}. Payload:`, JSON.stringify(paymentData));
-
-    const response = await axios.post(ZOHO_PAYMENTS_API_URL, paymentData, {
+    const response = await axios.post(ZOHO_INVOICES_API_URL, invoiceData, {
       headers: {
         Authorization: AUTH_HEADER,
+        "Content-Type": "application/json",
         ...ORG_HEADER,
-        "Content-Type": "application/json"
-      }
+      },
     });
 
-    // Check response message
-    if (response.data && response.data.code === 0) { // Zoho typically uses code 0 for success
-        console.log(`Successfully recorded payment for invoice ${invoiceId}. Payment ID: ${response.data.payment.payment_id}`);
-        return true; // Indicate success
+    if (response.data?.invoice?.invoice_id) {
+        createdInvoiceId = response.data.invoice.invoice_id;
+        console.log("Invoice Creation Response:", response.data.message);
+        console.log("Invoice created, Number:", response.data.invoice.invoice_number, "ID:", createdInvoiceId);
     } else {
-        console.error(`Failed to record payment for invoice ${invoiceId}. Response:`, JSON.stringify(response.data));
-        return false; // Indicate failure
+        console.error("Invoice created but ID not found in response", JSON.stringify(response.data));
     }
 
   } catch (error) {
     if (error.response) {
-      console.error(`Error recording payment for invoice ${invoiceId} - Status:`, error.response.status, "Data:", JSON.stringify(error.response.data));
+        console.error("Error creating invoice in Zoho - Status:", error.response.status, "Data:", JSON.stringify(error.response.data));
     } else {
-      console.error(`Error recording payment for invoice ${invoiceId}:`, error.message);
+        console.error("Error creating invoice in Zoho:", error.message);
     }
-    return false; // Indicate failure
   }
+  return createdInvoiceId;
 }
+
+/**
+ * Emails an existing Zoho Invoice.
+ * @param {string} invoiceId - Zoho Invoice ID.
+ * @param {string} recipientEmail - Email address to send to.
+ */
 async function emailZohoInvoice(invoiceId, recipientEmail) {
   if (!invoiceId || !recipientEmail) {
     console.error("Cannot email invoice: Missing invoiceId or recipientEmail.");
     return;
   }
-  // Construct the specific email endpoint URL
-  const ZOHO_EMAIL_API_URL = `https://www.zohoapis.in/invoice/v3/invoices/${invoiceId}/email`;
+  // Use correct API endpoint for your region/product (assuming US sandbox Invoice)
+  const ZOHO_EMAIL_API_URL = `${ZOHO_API_BASE_URL}/invoice/v3/invoices/${invoiceId}/email`;
   const AUTH_HEADER = `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`;
   const ORG_HEADER = { "X-com-zoho-invoice-organizationid": ZOHO_ORGANIZATION_ID };
 
   try {
     console.log(`Attempting to email invoice ${invoiceId} to ${recipientEmail}`);
-
     const emailPayload = {
-       to_mail_ids: [recipientEmail], 
-       subject: "Your Invoice from Autobot",
-       body: "Thank you for your business! <br><br>Please find your invoice attached.<br><br>Regards,<br>Autobot Team" 
+        to_mail_ids: [recipientEmail],
+        subject: "Your Invoice from Autobot", // Customize subject
+        body: "Thank you for your business! <br><br>Please find your invoice attached.<br><br>Regards,<br>Autobot Team" // Customize body
     };
     console.log("Sending Email Payload:", JSON.stringify(emailPayload));
 
     const response = await axios.post(ZOHO_EMAIL_API_URL, emailPayload, {
-       headers: {
-         Authorization: AUTH_HEADER,
-         ...ORG_HEADER,
-         "Content-Type": "application/json"
-       }
+        headers: {
+            Authorization: AUTH_HEADER,
+            ...ORG_HEADER,
+            "Content-Type": "application/json"
+        }
     });
-    // Check response message
-    console.log(`Email Invoice Response for ${invoiceId}:`, response.data.message); // e.g., "Your invoice has been sent."
+    console.log(`Email Invoice Response for ${invoiceId}:`, response.data?.message || JSON.stringify(response.data));
 
   } catch (error) {
      if (error.response) {
@@ -212,146 +196,134 @@ async function emailZohoInvoice(invoiceId, recipientEmail) {
   }
 }
 
-//  Create Invoice in Zoho (Creates Draft, returns ID)
-async function createInvoiceInZoho(customerId, amount, currency) {
-  let createdInvoiceId = null; 
-  try {
-    const url = process.env.ZOHO_BILLING_API_URL; 
 
-    const invoiceData = {
-      customer_id: customerId, 
-      line_items: [
-        {
-          name: "Subscription Payment", 
-          rate: amount, 
-          quantity: 1
-        },
-      ],
-      currency_code: currency, 
-    };
-    console.log("Sending data to Zoho Invoice:", JSON.stringify(invoiceData));
-    console.log("Calling URL:", url);
-    console.log("Using Access Token:", ZOHO_OAUTH_TOKEN ? ZOHO_OAUTH_TOKEN.substring(0, 15) + '...' : 'undefined'); // Log part of token
-    console.log("Using Org ID:", ZOHO_ORGANIZATION_ID);
-
-    const response = await axios.post(url, invoiceData, {
-      headers: {
-        Authorization: `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`,
-        "Content-Type": "application/json",
-        "X-com-zoho-invoice-organizationid": ZOHO_ORGANIZATION_ID,
-      },
-    });
-
-    // Check response and store the ID
-    if (response.data && response.data.invoice && response.data.invoice.invoice_id) {
-       createdInvoiceId = response.data.invoice.invoice_id;
-       console.log("Invoice Creation Response:", response.data.message); // e.g., "The invoice has been created."
-       console.log("Invoice created, Number:", response.data.invoice.invoice_number, "ID:", createdInvoiceId);
-    } else {
-       console.error("Invoice created but ID not found in response", JSON.stringify(response.data)); // Log full response
-    }
-
-  } catch (error) {
-    if (error.response) {
-        console.error("Error creating invoice in Zoho - Status:", error.response.status, "Data:", JSON.stringify(error.response.data));
-    } else {
-        console.error("Error creating invoice in Zoho:", error.message);
-    }
-  }
-  return createdInvoiceId; // Return the ID (or null if failed)
-}
-
+/**
+ * Handles the 'transaction.completed' event from Paddle.
+ * @param {object} eventData - The full event data from Paddle webhook.
+ */
 async function handleTransactionCompleted(eventData) {
   try {
-    const transactionId = eventData.data.id;
-    const occurredAt = eventData.data.occurred_at; // Get transaction time from Paddle if available
-    
-    // --- Extract Amount (Your existing logic) ---
+    const transactionId = eventData.data?.id;
+    const occurredAt = eventData.data?.occurred_at; // Get transaction time
+
+    console.log(`Processing transaction.completed: ${transactionId}`);
+
+    // --- Extract Amount ---
     let amount = 0;
-    if (eventData.data.payments && eventData.data.payments.length > 0) {
-      const amountFromPaddle = eventData.data.payments[0].amount;
-      if (amountFromPaddle) {
+    const amountFromPaddle = eventData.data?.payments?.[0]?.amount; // Path based on previous code
+    if (amountFromPaddle) {
         const amountInSmallestUnit = parseInt(amountFromPaddle, 10);
         if (!isNaN(amountInSmallestUnit)) {
-          amount = amountInSmallestUnit / 100.0;
+            amount = amountInSmallestUnit / 100.0; // Assumes currency uses 100 subunits
         } else {
-           console.error(`Could not parse amount string: "${amountFromPaddle}"`);
+           console.error(`Could not parse amount string: "${amountFromPaddle}" for transaction ${transactionId}`);
         }
-      }
     } else {
-      console.warn("Paddle event data did not contain payments array or it was empty.");
-    }
-    // --- End Amount Extraction ---
-
-    const currency = eventData.data.currency_code; // Make sure you actually need/use this if passing to payment record
-    const customerEmail = eventData.data.payments?.[0]?.billing_details?.email || "fallback@example.com"; // Use a real fallback or handle error
-
-    console.log(`Handling transaction completed for customer: ${customerEmail}, transaction ID: ${transactionId}, Amount: ${amount}`);
-    
-    if (amount <= 0) {
-        console.error("Amount is zero or invalid, cannot process invoice/payment.");
-        return; // Stop processing if amount is invalid
+      console.warn(`Amount not found in payments array for transaction ${transactionId}. Check Paddle payload structure.`);
     }
 
-    const customerId = await getZohoCustomerId(customerEmail);
+    // --- Extract Currency ---
+    const currency = eventData.data?.currency_code;
+    if (!currency) {
+        console.error(`Currency code missing for transaction ${transactionId}.`);
+        // Decide how to handle - maybe default, maybe stop
+    }
+
+    // --- Extract Customer Email (GUESSING PATH - VERIFY THIS) ---
+    // ** COMMON PATHS TO CHECK IN LOGS: **
+    // eventData.data.customer?.email
+    // eventData.data.billing_details?.email
+    // eventData.data.payments?.[0]?.billing_details?.email (original attempt)
+    const actualCustomerEmail = eventData.data.customer?.email; // <<< GUESSING - CHECK YOUR LOGS!
+    console.log(`Extracted email using 'data.customer.email': ${actualCustomerEmail}`); // Log what was extracted
+
+    if (!actualCustomerEmail) {
+        console.error(`ERROR: Customer email not found in Paddle webhook data using guessed path for transaction: ${transactionId}. Cannot proceed.`);
+        // Consider sending an alert or logging this prominently
+        return; // Stop processing this specific event
+    }
+    const customerEmail = actualCustomerEmail;
+
+    // --- Extract Customer Name (GUESSING PATH - VERIFY THIS) ---
+    // ** COMMON PATHS TO CHECK IN LOGS: **
+    // eventData.data.customer?.name
+    // eventData.data.billing_details?.name
+    // Combine first/last name fields if necessary
+    const actualCustomerName = eventData.data.customer?.name || customerEmail; // <<< GUESSING - CHECK YOUR LOGS! Fallback to email.
+    console.log(`Extracted name using 'data.customer.name' (fallback to email): ${actualCustomerName}`); // Log what was extracted
+    const customerName = actualCustomerName;
+
+    // --- Main Logic ---
+    console.log(`Handling transaction: Customer=${customerEmail}, Name=${customerName}, TxID=${transactionId}, Amount=${amount} ${currency}`);
+
+    if (amount <= 0 || !currency) {
+        console.error(`Invalid amount or missing currency for TxID ${transactionId}. Aborting.`);
+        return;
+    }
+
+    const customerId = await getZohoCustomerId(customerEmail, customerName);
 
     if (customerId) {
       const invoiceId = await createInvoiceInZoho(customerId, amount, currency);
 
       if (invoiceId) {
-        console.log(`Invoice ${invoiceId} created.`);
+        console.log(`Invoice ${invoiceId} created successfully for TxID ${transactionId}.`);
+        // --- Payment Recording Section REMOVED ---
 
-        // --- Add Payment Recording Step ---
-        // Get payment date (use Paddle's transaction time if available, otherwise current time)
-        const paymentDate = occurredAt 
-            ? new Date(occurredAt).toISOString().split('T')[0] // Format as YYYY-MM-DD
-            : new Date().toISOString().split('T')[0]; 
-
-        console.log(`Attempting to record payment for invoice ${invoiceId} on date ${paymentDate}`);
-        const paymentRecorded = await recordZohoPayment(customerId, invoiceId, amount, paymentDate, transactionId);
-        
-        if (paymentRecorded) {
-            console.log(`Payment recorded successfully for invoice ${invoiceId}. Now attempting email.`);
-             // Now email the invoice (which should hopefully reflect 'Paid' status, though Zoho might take a moment to update fully)
-            await emailZohoInvoice(invoiceId, customerEmail);
-        } else {
-             console.error(`Failed to record payment for invoice ${invoiceId}. Email will still be attempted, but invoice may show as Overdue.`);
-             // Decide if you still want to email if payment recording fails
-             await emailZohoInvoice(invoiceId, customerEmail); 
-        }
-       
+        // Email the newly created (unpaid) invoice
+        console.log(`Attempting to email invoice ${invoiceId} for TxID ${transactionId}.`);
+        await emailZohoInvoice(invoiceId, customerEmail);
 
       } else {
-        console.error("Invoice creation failed or did not return an ID. Payment/Email not processed.");
+        console.error(`Invoice creation failed for TxID ${transactionId}. Email not sent.`);
       }
     } else {
-      console.error(`Could not find or create Zoho customer for email: ${customerEmail}. Invoice not created.`);
+      console.error(`Could not find or create Zoho customer for ${customerEmail}. Invoice not created for TxID ${transactionId}.`);
     }
 
   } catch (error) {
-    console.error("Error handling transaction completed event:", error);
+    console.error("Error in handleTransactionCompleted:", error);
+    // Consider more specific error handling/logging
   }
 }
 
+// --- Webhook Endpoint ---
 app.post("/paddle-webhook", async (req, res) => {
+  // Add a log to confirm the endpoint is hit
+  console.log(`--- PADDLE WEBHOOK ENDPOINT HIT at ${new Date().toISOString()} ---`);
   try {
     const eventData = req.body;
-    const eventType = eventData.event_type;
-    console.log(`Received Paddle event: ${eventType}`);
+
+    // !! IMPORTANT: Log the raw incoming data to verify paths !!
+    console.log(">>> Paddle Webhook Received Data:", JSON.stringify(eventData, null, 2));
+
+    const eventType = eventData?.event_type; // Use optional chaining
+    console.log(`Received Paddle event type: ${eventType}`);
+
     if (eventType === "transaction.completed") {
-      await handleTransactionCompleted(eventData);
+      // Process async but send response quickly
+      handleTransactionCompleted(eventData).catch(err => {
+          console.error("Error processing transaction completed handler:", err);
+          // Optionally add monitoring/alerting here
+      });
+      // Respond immediately to Paddle
+      res.status(200).send("Webhook received successfully, processing initiated.");
+
     } else {
-      console.log(`Unhandled event: ${eventType}`);
+      console.log(`Unhandled event type: ${eventType}`);
+      res.status(200).send(`Webhook received, unhandled event type: ${eventType}`);
     }
-    res.status(200).send("Webhook received successfully");
   } catch (error) {
     console.error("Error processing webhook:", error);
     res.status(500).send("Internal Server Error during webhook processing");
   }
 });
 
-// Server Start
+// --- Server Start ---
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  // Verify essential env vars on start
+  if (!ZOHO_OAUTH_TOKEN) console.warn("Warning: ZOHO_OAUTH_TOKEN environment variable not set.");
+  if (!ZOHO_ORGANIZATION_ID) console.warn("Warning: ZOHO_ORGANIZATION_ID environment variable not set.");
 });
