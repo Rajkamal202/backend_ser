@@ -215,9 +215,8 @@ async function getPaddleCustomerDetails(paddleCustomerId) {
         return null;
     }
 
-    // Verify this endpoint in Paddle API docs (/customers/{id})
-    const PADDLE_CUSTOMER_URL = `<span class="math-inline">\{PADDLE\_API\_BASE\_URL\}/customers/</span>{paddleCustomerId}`;
-    console.log(`Workspaceing Paddle customer details from: ${PADDLE_CUSTOMER_URL}`);
+   const PADDLE_CUSTOMER_URL = `${PADDLE_API_BASE_URL}/customers/${paddleCustomerId}`; // CORRECTED URL construction
+   console.log(`Workspaceing Paddle customer details from: ${PADDLE_CUSTOMER_URL}`); // CORRECTED log message
 
     try {
         const response = await axios.get(PADDLE_CUSTOMER_URL, {
