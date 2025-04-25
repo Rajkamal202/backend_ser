@@ -204,13 +204,37 @@ async function emailZohoInvoice(invoiceId, recipientEmail) {
 async function handleTransactionCompleted(eventData) {
   try {
     const transactionId = eventData.data?.id;
-    const occurredAt = eventData.data?.occurred_at; // Get transaction time
+    const occurredAt = eventData.data?.occurred_at;
+    const paddleCustomerId = eventData.data?.customer_id; // Extract Paddle Customer ID
 
     console.log(`Processing transaction.completed: ${transactionId}`);
 
-    // --- Extract Amount ---
+    if (!paddleCustomerId) {
+        console.error(`ERROR: Paddle Customer ID missing in webhook data for TxID ${transactionId}. Cannot fetch details.`);
+        return; // Stop if no customer ID
+    }
+
+    // --- Step 1: Fetch Customer Details from Paddle API ---
+    const customerDetails = await getPaddleCustomerDetails(paddleCustomerId);
+
+    // --- Step 2: Validate Fetched Details (Especially Email) ---
+    // **** THIS IS THE CORRECTED CHECK ****
+    if (!customerDetails || !customerDetails.email) {
+        console.error(`ERROR: Could not retrieve valid customer email from Paddle API for Customer ID ${paddleCustomerId}, TxID ${transactionId}. Aborting.`);
+        // Check logs from getPaddleCustomerDetails above this for Paddle API errors
+        return; // Stop processing if email is missing from Paddle API response
+    }
+
+    // --- Step 3: Use Fetched Details ---
+    const customerEmail = customerDetails.email;
+    // Use fetched name from Paddle API, fallback to the email if name wasn't returned/available
+    const customerName = customerDetails.name || customerEmail;
+
+    console.log(`Successfully retrieved from Paddle API: Email=${customerEmail}, Name=${customerName}`);
+
+    // --- Step 4: Extract Amount & Currency from Webhook ---
     let amount = 0;
-    const amountFromPaddle = eventData.data?.payments?.[0]?.amount; // Path based on previous code
+    const amountFromPaddle = eventData.data?.payments?.[0]?.amount;
     if (amountFromPaddle) {
         const amountInSmallestUnit = parseInt(amountFromPaddle, 10);
         if (!isNaN(amountInSmallestUnit)) {
@@ -221,59 +245,29 @@ async function handleTransactionCompleted(eventData) {
     } else {
       console.warn(`Amount not found in payments array for transaction ${transactionId}. Check Paddle payload structure.`);
     }
-
-    // --- Extract Currency ---
     const currency = eventData.data?.currency_code;
     if (!currency) {
         console.error(`Currency code missing for transaction ${transactionId}.`);
         // Decide how to handle - maybe default, maybe stop
     }
 
-    // --- Extract Customer Email (GUESSING PATH - VERIFY THIS) ---
-    // ** COMMON PATHS TO CHECK IN LOGS: **
-    // eventData.data.customer?.email
-    // eventData.data.billing_details?.email
-    // eventData.data.payments?.[0]?.billing_details?.email (original attempt)
-    const actualCustomerEmail = eventData.data.customer?.email; // <<< GUESSING - CHECK YOUR LOGS!
-    console.log(`Extracted email using 'data.customer.email': ${actualCustomerEmail}`); // Log what was extracted
-
-    if (!actualCustomerEmail) {
-        console.error(`ERROR: Customer email not found in Paddle webhook data using guessed path for transaction: ${transactionId}. Cannot proceed.`);
-        // Consider sending an alert or logging this prominently
-        return; // Stop processing this specific event
-    }
-    const customerEmail = actualCustomerEmail;
-
-    // --- Extract Customer Name (GUESSING PATH - VERIFY THIS) ---
-    // ** COMMON PATHS TO CHECK IN LOGS: **
-    // eventData.data.customer?.name
-    // eventData.data.billing_details?.name
-    // Combine first/last name fields if necessary
-    const actualCustomerName = eventData.data.customer?.name || customerEmail; // <<< GUESSING - CHECK YOUR LOGS! Fallback to email.
-    console.log(`Extracted name using 'data.customer.name' (fallback to email): ${actualCustomerName}`); // Log what was extracted
-    const customerName = actualCustomerName;
-
-    // --- Main Logic ---
+    // --- Step 5: Main Zoho Logic ---
     console.log(`Handling transaction: Customer=${customerEmail}, Name=${customerName}, TxID=${transactionId}, Amount=${amount} ${currency}`);
 
-    if (amount <= 0 || !currency) {
-        console.error(`Invalid amount or missing currency for TxID ${transactionId}. Aborting.`);
+    // Add checks here again before calling Zoho functions
+    if (!customerEmail || amount <= 0 || !currency) {
+        console.error(`Missing required data before calling Zoho functions for TxID ${transactionId}. Aborting.`);
         return;
     }
 
-    const customerId = await getZohoCustomerId(customerEmail, customerName);
+    const zohoCustomerId = await getZohoCustomerId(customerEmail, customerName);
 
-    if (customerId) {
-      const invoiceId = await createInvoiceInZoho(customerId, amount, currency);
-
+    if (zohoCustomerId) {
+      const invoiceId = await createInvoiceInZoho(zohoCustomerId, amount, currency);
       if (invoiceId) {
         console.log(`Invoice ${invoiceId} created successfully for TxID ${transactionId}.`);
-        // --- Payment Recording Section REMOVED ---
-
-        // Email the newly created (unpaid) invoice
-        console.log(`Attempting to email invoice ${invoiceId} for TxID ${transactionId}.`);
+        console.log(`Attempting to email invoice ${invoiceId} to ${customerEmail} for TxID ${transactionId}.`);
         await emailZohoInvoice(invoiceId, customerEmail);
-
       } else {
         console.error(`Invoice creation failed for TxID ${transactionId}. Email not sent.`);
       }
@@ -283,7 +277,6 @@ async function handleTransactionCompleted(eventData) {
 
   } catch (error) {
     console.error("Error in handleTransactionCompleted:", error);
-    // Consider more specific error handling/logging
   }
 }
 
