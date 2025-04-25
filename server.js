@@ -6,22 +6,14 @@ require('dotenv').config();
 
 app.use(express.json());
 
-// --- Configuration - Ensure these are set for your SANDBOX environment ---
-// Base URL for Zoho Invoice/Books API calls (Sandbox, US Datacenter assumed)
-const ZOHO_API_BASE_URL = "https://sandbox.zohoapis.com"; // Use .com for US, .in for India etc.
-const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN; // Use a valid SANDBOX Access Token (consider refresh logic for real use)
-const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID; // Use your SANDBOX Org ID
 
-// --- Helper Functions ---
+const ZOHO_API_BASE_URL = "https://sandbox.zohoapis.com"; 
+const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN; 
+const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID; 
 
-/**
- * Gets Zoho Customer ID by email. Creates contact if not found.
- * @param {string} email - Customer's email.
- * @param {string} name - Customer's name (used if creating contact).
- * @returns {Promise<string|null>} Customer ID or null if error.
- */
+
 async function getZohoCustomerId(email, name) {
-  // Use correct API endpoint for your region/product (assuming US sandbox Invoice)
+  
   const ZOHO_CONTACTS_API_URL = `${ZOHO_API_BASE_URL}/invoice/v3/contacts`;
   const AUTH_HEADER = `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`;
   const ORG_HEADER = { "X-com-zoho-invoice-organizationid": ZOHO_ORGANIZATION_ID };
@@ -30,7 +22,6 @@ async function getZohoCustomerId(email, name) {
       console.error("getZohoCustomerId: Email is required.");
       return null;
   }
-  // Use email as name if name is not provided
   const contactName = name || email;
 
   try {
@@ -50,7 +41,7 @@ async function getZohoCustomerId(email, name) {
     } else {
       console.log(`Contact not found for ${email}, attempting to create with name: ${contactName}...`);
       const createPayload = {
-        contact_name: contactName, // Use the provided name
+        contact_name: contactName, 
         email: email,
       };
       console.log("Creating Zoho contact payload:", JSON.stringify(createPayload));
@@ -73,13 +64,12 @@ async function getZohoCustomerId(email, name) {
           return null;
         }
       } catch (createError) {
-        // Simplified error handling for creation
         if (createError.response) {
            console.error("Error creating Zoho contact - Status:", createError.response.status, "Data:", JSON.stringify(createError.response.data));
         } else {
            console.error("Error creating Zoho contact:", createError.message);
         }
-        // Note: Removed the complex re-search logic for simplicity, might need it back later
+
         return null;
       }
     }
@@ -93,16 +83,9 @@ async function getZohoCustomerId(email, name) {
   }
 }
 
-/**
- * Creates an invoice (as Draft) in Zoho.
- * @param {string} customerId - Zoho Customer ID.
- * @param {number} amount - Invoice amount.
- * @param {string} currency - Currency code (e.g., "USD", "INR").
- * @returns {Promise<string|null>} Invoice ID or null if error.
- */
+
 async function createInvoiceInZoho(customerId, amount, currency) {
   let createdInvoiceId = null;
-  // Use correct API endpoint for your region/product (assuming US sandbox Invoice)
   const ZOHO_INVOICES_API_URL = `${ZOHO_API_BASE_URL}/invoice/v3/invoices`;
   const AUTH_HEADER = `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`;
   const ORG_HEADER = { "X-com-zoho-invoice-organizationid": ZOHO_ORGANIZATION_ID };
@@ -120,12 +103,9 @@ async function createInvoiceInZoho(customerId, amount, currency) {
         },
       ],
       currency_code: currency,
-      // Optionally set due date, terms etc.
-      // due_date: new Date().toISOString().split('T')[0] // Example: Due today
     };
     console.log("Sending data to Zoho Invoice:", JSON.stringify(invoiceData));
     console.log("Calling URL:", ZOHO_INVOICES_API_URL);
-    // console.log("Using Access Token:", ZOHO_OAUTH_TOKEN ? ZOHO_OAUTH_TOKEN.substring(0, 10) + '...' : 'undefined'); // Log part of token if debugging
     console.log("Using Org ID:", ZOHO_ORGANIZATION_ID);
 
     const response = await axios.post(ZOHO_INVOICES_API_URL, invoiceData, {
@@ -154,11 +134,7 @@ async function createInvoiceInZoho(customerId, amount, currency) {
   return createdInvoiceId;
 }
 
-/**
- * Emails an existing Zoho Invoice.
- * @param {string} invoiceId - Zoho Invoice ID.
- * @param {string} recipientEmail - Email address to send to.
- */
+
 async function emailZohoInvoice(invoiceId, recipientEmail) {
   if (!invoiceId || !recipientEmail) {
     console.error("Cannot email invoice: Missing invoiceId or recipientEmail.");
@@ -270,12 +246,8 @@ async function handleTransactionCompleted(eventData) {
 
     // --- Step 1: Fetch Customer Details from Paddle API ---
     const customerDetails = await getPaddleCustomerDetails(paddleCustomerId);
-
-    // --- Step 2: Validate Fetched Details (Especially Email) ---
-    // **** THIS IS THE CORRECTED CHECK ****
     if (!customerDetails || !customerDetails.email) {
         console.error(`ERROR: Could not retrieve valid customer email from Paddle API for Customer ID ${paddleCustomerId}, TxID ${transactionId}. Aborting.`);
-        // Check logs from getPaddleCustomerDetails above this for Paddle API errors
         return; // Stop processing if email is missing from Paddle API response
     }
 
@@ -302,13 +274,8 @@ async function handleTransactionCompleted(eventData) {
     const currency = eventData.data?.currency_code;
     if (!currency) {
         console.error(`Currency code missing for transaction ${transactionId}.`);
-        // Decide how to handle - maybe default, maybe stop
     }
-
-    // --- Step 5: Main Zoho Logic ---
     console.log(`Handling transaction: Customer=${customerEmail}, Name=${customerName}, TxID=${transactionId}, Amount=${amount} ${currency}`);
-
-    // Add checks here again before calling Zoho functions
     if (!customerEmail || amount <= 0 || !currency) {
         console.error(`Missing required data before calling Zoho functions for TxID ${transactionId}. Aborting.`);
         return;
@@ -334,7 +301,7 @@ async function handleTransactionCompleted(eventData) {
   }
 }
 
-// --- Webhook Endpoint ---
+
 app.post("/paddle-webhook", async (req, res) => {
   // Add a log to confirm the endpoint is hit
   console.log(`--- PADDLE WEBHOOK ENDPOINT HIT at ${new Date().toISOString()} ---`);
