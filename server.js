@@ -204,7 +204,7 @@ async function emailZohoInvoice(invoiceId, recipientEmail) {
 async function getPaddleCustomerDetails(paddleCustomerId) {
     // --- Get Paddle API Key from environment variables ---
     const PADDLE_API_KEY = process.env.PADDLE_API_KEY;
-    const PADDLE_API_BASE_URL = "https://api.paddle.com"; // Standard Paddle API URL
+    const PADDLE_API_BASE_URL = "https://sandbox-api.paddle.com";
 
     if (!paddleCustomerId) {
         console.error("getPaddleCustomerDetails: Paddle Customer ID is required.");
