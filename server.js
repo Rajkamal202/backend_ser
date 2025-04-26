@@ -189,7 +189,7 @@ async function getPaddleCustomerDetails(paddleCustomerId) {
         return null;
     }
 
-   const PADDLE_CUSTOMER_URL = `${PADDLE_API_BASE_URL}/customers/${paddleCustomerId}`; // CORRECTED URL construction
+   const PADDLE_CUSTOMER_URL = `${PADDLE_API_BASE_URL}/customers/${paddleCustomerId}`; 
    console.log(`Workspaceing Paddle customer details from: ${PADDLE_CUSTOMER_URL}`); // CORRECTED log message
 
     try {
@@ -201,7 +201,6 @@ async function getPaddleCustomerDetails(paddleCustomerId) {
             }
         });
 
-        // ** VERIFY these paths in Paddle API documentation for customer object **
         // Adjust '.data.email' and '.data.name' if Paddle's response structure is different
         const email = response.data?.data?.email;
         const name = response.data?.data?.name;
@@ -225,15 +224,12 @@ async function getPaddleCustomerDetails(paddleCustomerId) {
         return null; // Return null on error
     }
 }
-/**
- * Handles the 'transaction.completed' event from Paddle.
- * @param {object} eventData - The full event data from Paddle webhook.
- */
+
 async function handleTransactionCompleted(eventData) {
   try {
     const transactionId = eventData.data?.id;
     const occurredAt = eventData.data?.occurred_at;
-    const paddleCustomerId = eventData.data?.customer_id; // Extract Paddle Customer ID
+    const paddleCustomerId = eventData.data?.customer_id; 
 
     console.log(`Processing transaction.completed: ${transactionId}`);
 
@@ -242,7 +238,7 @@ async function handleTransactionCompleted(eventData) {
         return; // Stop if no customer ID
     }
 
-    // --- Step 1: Fetch Customer Details from Paddle API ---
+ 
     const customerDetails = await getPaddleCustomerDetails(paddleCustomerId);
     if (!customerDetails || !customerDetails.email) {
         console.error(`ERROR: Could not retrieve valid customer email from Paddle API for Customer ID ${paddleCustomerId}, TxID ${transactionId}. Aborting.`);
@@ -256,7 +252,7 @@ async function handleTransactionCompleted(eventData) {
 
     console.log(`Successfully retrieved from Paddle API: Email=${customerEmail}, Name=${customerName}`);
 
-    // --- Step 4: Extract Amount & Currency from Webhook ---
+    // Extract Amount & Currency from Webhook
     let amount = 0;
     const amountFromPaddle = eventData.data?.payments?.[0]?.amount;
     if (amountFromPaddle) {
