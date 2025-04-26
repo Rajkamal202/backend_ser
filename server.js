@@ -14,11 +14,6 @@ const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID;
 
 const PADDLE_API_KEY = process.env.PADDLE_API_KEY;
 
-/**
- * Fetches customer details from Paddle API using customer ID.
- * @param {string} paddleCustomerId - The Paddle Customer ID (e.g., ctm_...).
- * @returns {Promise<{email: string, name: string}|null>} Object with email/name or null.
- */
 async function getPaddleCustomerDetails(paddleCustomerId) {
     const PADDLE_API_BASE_URL = "https://sandbox-api.paddle.com";
 
@@ -43,9 +38,8 @@ async function getPaddleCustomerDetails(paddleCustomerId) {
             }
         });
 
-        // Paths based on successful API call response
         const email = response.data?.data?.email;
-        const name = response.data?.data?.name; // Might be null
+        const name = response.data?.data?.name; 
 
         if (!email) {
              console.warn(`getPaddleCustomerDetails: Email not found in Paddle response for customer ${paddleCustomerId}. Response Data:`, JSON.stringify(response.data));
