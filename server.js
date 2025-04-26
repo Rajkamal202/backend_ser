@@ -1,4 +1,3 @@
-// Main application code (e.g., server.js)
 const express = require("express");
 const axios = require("axios");
 const app = express();
@@ -6,22 +5,14 @@ require('dotenv').config();
 
 app.use(express.json());
 
-// --- Configuration - Ensure these are set for your SANDBOX environment ---
-// Base URL for Zoho Billing API v1 calls (Sandbox, US Datacenter assumed)
-const ZOHO_API_BASE_URL = "https://sandbox.zohoapis.com"; // Use .com for US, .in for India etc.
-const ZOHO_BILLING_API_VERSION_PATH = "/billing/v1"; // Path for Billing API v1
+const ZOHO_API_BASE_URL = "https://sandbox.zohoapis.com"; 
+const ZOHO_BILLING_API_VERSION_PATH = "/billing/v1"; 
 
-// Use a valid SANDBOX Access Token (consider refresh logic for real use)
-// Ensure this token has the necessary ZohoSubscriptions.* scopes
 const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN;
 
-// Use your SANDBOX Org ID
 const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID;
 
-// Use your SANDBOX Paddle API Key
 const PADDLE_API_KEY = process.env.PADDLE_API_KEY;
-
-// --- Helper Functions ---
 
 /**
  * Fetches customer details from Paddle API using customer ID.
@@ -76,16 +67,11 @@ async function getPaddleCustomerDetails(paddleCustomerId) {
 
 
 /**
- * Gets Zoho Customer ID by email using Zoho Billing API. Creates customer if not found.
- * @param {string} email - Customer's email.
- * @param {string} name - Customer's name (used if creating contact).
- * @returns {Promise<string|null>} Customer ID or null if error.
+ * Gets Zoho Customer ID by email using Zoho Billing API.If customer is not found we will create new customer .
  */
 async function getZohoCustomerId(email, name) {
-    // ** UPDATED for Billing API v1 **
     const ZOHO_CUSTOMERS_API_URL = `${ZOHO_API_BASE_URL}${ZOHO_BILLING_API_VERSION_PATH}/customers`;
     const AUTH_HEADER = `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`;
-    // ** UPDATED Header Name **
     const ORG_HEADER = { "X-com-zoho-subscriptions-organizationid": ZOHO_ORGANIZATION_ID };
 
     if (!email) {
@@ -103,8 +89,7 @@ async function getZohoCustomerId(email, name) {
                 Authorization: AUTH_HEADER,
                 ...ORG_HEADER
             },
-            params: { email: email } // Verify if 'email' is the correct filter parameter for Billing v1
-        });
+            params: { email: email }
 
         // ** ADJUST response parsing based on actual Billing v1 GET /customers response **
         if (searchResponse.data?.customers?.length > 0) {
@@ -191,10 +176,8 @@ async function getZohoCustomerId(email, name) {
  */
 async function createInvoiceInZoho(customerId, amount, currency) {
     let createdInvoiceId = null;
-    // ** UPDATED for Billing API v1 **
     const ZOHO_INVOICES_API_URL = `${ZOHO_API_BASE_URL}${ZOHO_BILLING_API_VERSION_PATH}/invoices`;
     const AUTH_HEADER = `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`;
-    // ** UPDATED Header Name **
     const ORG_HEADER = { "X-com-zoho-subscriptions-organizationid": ZOHO_ORGANIZATION_ID };
 
     try {
