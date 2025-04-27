@@ -5,50 +5,30 @@ require('dotenv').config();
 
 app.use(express.json());
 
-// Zoho Sandbox API URL
 const ZOHO_API_BASE_URL = "https://sandbox.zohoapis.com";
-// Zoho Billing API path
 const ZOHO_BILLING_API_VERSION_PATH = "/billing/v1";
-
-// Get Zoho keys/ID from .env file
 const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN;
 const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID;
-
-// Get Paddle key from .env file
 const PADDLE_API_KEY = process.env.PADDLE_API_KEY;
 
 
-// --- Functions ---
-
-/**
- * Get customer details from Paddle using customer ID.
- * Returns email and name.
- */
 async function getPaddleCustomerDetails(paddleCustomerId) {
-    // Paddle Sandbox API URL
     const PADDLE_API_BASE_URL = "https://sandbox-api.paddle.com";
-
-    // Check if ID received
     if (!paddleCustomerId) {
         console.error("getPaddleCustomerDetails: Need Paddle Customer ID.");
         return null;
     }
-    // Check if Paddle key exists
     if (!PADDLE_API_KEY) {
         console.error("getPaddleCustomerDetails: PADDLE_API_KEY missing.");
         return null;
     }
 
-    // Make full Paddle URL
     const PADDLE_CUSTOMER_URL = `${PADDLE_API_BASE_URL}/customers/${paddleCustomerId}`;
     console.log(`Calling Paddle API: ${PADDLE_CUSTOMER_URL}`);
 
-    // Try calling Paddle
     try {
-        // Call API using axios
         const response = await axios.get(PADDLE_CUSTOMER_URL, {
             headers: {
-                // Paddle needs 'Bearer' token for auth
                 'Authorization': `Bearer ${PADDLE_API_KEY}`,
                 'Content-Type': 'application/json'
             }
@@ -56,7 +36,7 @@ async function getPaddleCustomerDetails(paddleCustomerId) {
 
         // Get email and name from Paddle response
         const email = response.data?.data?.email;
-        const name = response.data?.data?.name; // Name might be null
+        const name = response.data?.data?.name; 
 
         if (!email) {
              console.warn(`getPaddleCustomerDetails: Email missing in Paddle response for ${paddleCustomerId}.`);
@@ -65,8 +45,6 @@ async function getPaddleCustomerDetails(paddleCustomerId) {
         console.log(`Got Paddle details: Email: ${email}, Name: ${name}`);
         // Send back email and name
         return { email, name };
-
-    // If error happens...
     } catch (error) {
         console.error(`Error getting Paddle customer ${paddleCustomerId}`);
         if (error.response) {
@@ -84,11 +62,8 @@ async function getPaddleCustomerDetails(paddleCustomerId) {
  * Uses Zoho Billing API. Returns Zoho customer ID.
  */
 async function getZohoCustomerId(email, name) {
-    // Zoho Billing API URL for customers
     const ZOHO_CUSTOMERS_API_URL = `${ZOHO_API_BASE_URL}${ZOHO_BILLING_API_VERSION_PATH}/customers`;
-    // Zoho auth header
     const AUTH_HEADER = `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`;
-    // Zoho org header (for Billing API)
     const ORG_HEADER = { "X-com-zoho-subscriptions-organizationid": ZOHO_ORGANIZATION_ID };
 
     // Check email exists
@@ -112,18 +87,15 @@ async function getZohoCustomerId(email, name) {
         });
 
         // Check if customer found in response
-        // ** WARNING: Check Zoho Billing docs for correct response data! **
         if (searchResponse.data?.customers?.length > 0) {
             // Found customer! Get ID.
-            // ** WARNING: Check if ID field name is 'customer_id'! **
             const customerId = searchResponse.data.customers[0].customer_id;
             console.log(`Found Zoho customer. ID: ${customerId}`);
-            return customerId; // Return the found ID
+            return customerId;
         } else {
             // Customer not found, so create new one
             console.log(`Customer not found, creating: ${customerDisplayName}...`);
             // Prepare data for new customer
-            // ** WARNING: Check Billing docs for correct fields! 'display_name' is guess. **
             const createPayload = {
                 display_name: customerDisplayName,
                 email: email,
@@ -142,7 +114,6 @@ async function getZohoCustomerId(email, name) {
                 });
 
                 // Check if create worked and gave ID
-                // ** WARNING: Check Billing docs for correct response data! **
                 if (createResponse.data?.customer?.customer_id) {
                     const newCustomerId = createResponse.data.customer.customer_id;
                     console.log(`Created Zoho customer. ID: ${newCustomerId}`);
