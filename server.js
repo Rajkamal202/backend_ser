@@ -315,7 +315,6 @@ async function handleTransactionCompleted(eventData) {
     }
 }
 
-// --- Webhook Endpoint ---
 app.post("/paddle-webhook", async (req, res) => {
     console.log(`--- PADDLE WEBHOOK ENDPOINT HIT at ${new Date().toISOString()} ---`);
     try {
