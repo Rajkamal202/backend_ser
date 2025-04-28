@@ -52,7 +52,7 @@ async function getPaddleCustomerDetails(paddleCustomerId) {
         } else {
            console.error("Paddle API Error:", error.message);
         }
-        return null; // Failed
+        return null; 
     }
 }
 
@@ -83,7 +83,7 @@ async function getZohoCustomerId(email, name) {
                 Authorization: AUTH_HEADER,
                 ...ORG_HEADER
             },
-            params: { email: email } // Filter by email
+            params: { email: email } 
         });
 
         // Check if customer found in response
@@ -93,7 +93,6 @@ async function getZohoCustomerId(email, name) {
             console.log(`Found Zoho customer. ID: ${customerId}`);
             return customerId;
         } else {
-            // Customer not found, so create new one
             console.log(`Customer not found, creating: ${customerDisplayName}...`);
             // Prepare data for new customer
             const createPayload = {
@@ -117,9 +116,9 @@ async function getZohoCustomerId(email, name) {
                 if (createResponse.data?.customer?.customer_id) {
                     const newCustomerId = createResponse.data.customer.customer_id;
                     console.log(`Created Zoho customer. ID: ${newCustomerId}`);
-                    return newCustomerId; // Return the new ID
+                    return newCustomerId; 
                 } else {
-                    // Something wrong with response after create
+                    //If something wrong with response after create
                     console.error("Failed create Zoho customer, bad response:", JSON.stringify(createResponse.data));
                     return null;
                 }
@@ -158,11 +157,9 @@ async function getZohoCustomerId(email, name) {
     }
 }
 
-/**
- * Create invoice in Zoho Billing.
- * Need Zoho customer ID, amount, currency.
- * Return invoice ID or null.
- */
+//  Create invoice in Zoho Billing.
+//  Need Zoho customer ID, amount, currency.
+//  Return invoice ID or null.
 async function createInvoiceInZoho(customerId, amount, currency) {
     let createdInvoiceId = null; // To store result
     // Zoho Billing API URL for invoices
@@ -173,16 +170,13 @@ async function createInvoiceInZoho(customerId, amount, currency) {
 
     // Try creating invoice
     try {
-        // --- Data to send to Zoho ---
-        // ** WARNING: Check Zoho Billing v1 docs for POST /invoices! This is GUESS! **
-        // ** Need correct structure, maybe item_id or plan_code needed? **
-        // ** Create Item/Plan in Zoho Billing Sandbox first! **
+        // Data to send to Zoho
+        // Create Item/Plan in Zoho Billing Sandbox first!
         const invoiceData = {
-            customer_id: customerId, // Link to customer
-            // --- Example using Item ID (Likely needed) ---
+            customer_id: customerId, 
              line_items: [
                  {
-                     item_id: "YOUR_ZOHO_BILLING_ITEM_ID", // !! REPLACE THIS with actual Item ID from Zoho Billing Sandbox !!
+                     item_id: "YOUR_ZOHO_BILLING_ITEM_ID",
                      quantity: 1,
                      price: amount // Check if price override works
                  }
@@ -204,7 +198,6 @@ async function createInvoiceInZoho(customerId, amount, currency) {
         });
 
         // Check response for invoice ID
-        // ** WARNING: Check Billing docs for correct response structure! **
         if (response.data?.invoice?.invoice_id) {
             createdInvoiceId = response.data.invoice.invoice_id;
             console.log("Invoice Creation Response:", response.data.message); // Log Zoho message
@@ -242,15 +235,11 @@ async function emailZohoInvoice(invoiceId, recipientEmail) {
     try {
         console.log(`Trying email invoice ${invoiceId} to ${recipientEmail}`);
         // Data for email API
-        // ** WARNING: Check Billing docs for correct payload! Maybe just email needed? **
         const emailPayload = {
-            to_mail_ids: [recipientEmail], // Send to this email
-            // subject: "Your Invoice from Autobot", // Check if allowed
-            // body: "Thank you..." // Check if allowed
+            to_mail_ids: [recipientEmail], 
         };
         console.log("Sending Email Payload:", JSON.stringify(emailPayload));
 
-        // Call Zoho POST /invoices/{id}/email API
         const response = await axios.post(ZOHO_EMAIL_API_URL, emailPayload, {
             headers: {
                 Authorization: AUTH_HEADER,
@@ -359,15 +348,12 @@ async function handleTransactionCompleted(eventData) {
     }
 }
 
-// --- Webhook Endpoint ---
-// This part listens for messages from Paddle at /paddle-webhook
 app.post("/paddle-webhook", async (req, res) => {
     console.log(`--- PADDLE WEBHOOK ENDPOINT HIT at ${new Date().toISOString()} ---`);
     try {
         // Get data from Paddle request
         const eventData = req.body;
 
-        // Log all data received (good for debug)
         console.log(">>> Paddle Webhook Received Data:", JSON.stringify(eventData, null, 2));
 
         // Get event type (like 'transaction.completed')
@@ -393,18 +379,14 @@ app.post("/paddle-webhook", async (req, res) => {
     // If error handling request itself...
     } catch (error) {
         console.error("Error processing webhook:", error);
-        // Send server error back to Paddle
         res.status(500).send("Internal Server Error during webhook processing");
     }
 });
 
-// --- Server Start ---
-// Get port from environment or use 3000
+
 const PORT = process.env.PORT || 3000;
-// Start server listening
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-    // Check if important .env variables are set (optional warning)
     if (!ZOHO_OAUTH_TOKEN) console.warn("Warning: ZOHO_OAUTH_TOKEN missing.");
     if (!ZOHO_ORGANIZATION_ID) console.warn("Warning: ZOHO_ORGANIZATION_ID missing.");
     if (!PADDLE_API_KEY) console.warn("Warning: PADDLE_API_KEY missing.");
