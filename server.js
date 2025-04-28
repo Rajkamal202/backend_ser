@@ -12,17 +12,11 @@ const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN; // From .env
 const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID; // From .env
 const PADDLE_API_KEY = process.env.PADDLE_API_KEY; // From .env
 
-// --- !!! IMPORTANT: MAP PADDLE PRICE IDs TO ZOHO PLAN CODES !!! ---
-// You MUST find the actual IDs/Codes from your Paddle and Zoho Billing Sandbox setups
-// and replace the placeholder values below.
+
 const PADDLE_TO_ZOHO_PLAN_MAP = {
-    // --- Example Structure ---
-    // Replace "pri_..." with your actual Paddle Price IDs
-    // Replace "ZOHO_PLAN_CODE_..." with your actual Zoho Billing Plan Codes
     "pri_01js3tjscp3sqvw4h4ngqb5d6h": "starter_yearly",
     "pri_01js3ty4vadz3hxn890a9yvax1": "pro_yearly",
     "pri_01js3v0bh5yfs8k7gt4ya5nmwt": "enterprise_yearly"
-    // Add mappings for any other Price IDs you use
 };
 
 async function getPaddleCustomerDetails(paddleCustomerId) {
@@ -80,18 +74,16 @@ async function getZohoCustomerId(email, name) {
         console.log(`Searching Zoho Billing customer: ${email}`);
         const searchResponse = await axios.get(ZOHO_CUSTOMERS_API_URL, {
             headers: { Authorization: AUTH_HEADER, ...ORG_HEADER },
-            params: { email: email } // Verify 'email' is correct filter parameter
+            params: { email: email }
         });
         // Check response if customer found
-        // ** WARNING: Check Zoho Billing docs for correct response structure! **
         if (searchResponse.data?.customers?.length > 0) {
-            const customerId = searchResponse.data.customers[0].customer_id; // Check field name 'customer_id'
+            const customerId = searchResponse.data.customers[0].customer_id;
             console.log(`Found Zoho customer. ID: ${customerId}`);
             return customerId;
         } else {
             // Customer not found, try to create
             console.log(`Customer not found, creating: ${customerDisplayName}...`);
-            // ** WARNING: Check Billing docs for correct POST /customers fields! **
             const createPayload = { display_name: customerDisplayName, email: email }; // 'display_name' is guess
             console.log("Creating Zoho customer payload:", JSON.stringify(createPayload));
             try {
