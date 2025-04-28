@@ -171,7 +171,6 @@ async function createInvoiceInZoho(customerId, zohoPlanCode, amount, currency) {
         });
 
         // Check response for invoice ID
-        // ** WARNING: Check Billing docs for correct response structure! **
         if (response.data?.invoice?.invoice_id) {
             createdInvoiceId = response.data.invoice.invoice_id;
             console.log("Invoice Creation Response:", response.data.message);
