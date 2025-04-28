@@ -269,13 +269,13 @@ async function handleTransactionCompleted(eventData) {
         }
          console.log(`Paddle Price ID found: ${paddlePriceId}`);
 
-        // --- Step 5: Map Paddle Price ID to Zoho Plan Code --- // MODIFIED
-        const zohoPlanCode = PADDLE_TO_ZOHO_PLAN_MAP[paddlePriceId]; // Use Plan Map
-        if (!zohoPlanCode || zohoPlanCode.startsWith("ZOHO_PLAN_CODE_")) { // MODIFIED Check
+        // --- Step 5: Map Paddle Price ID to Zoho Plan Code
+        const zohoPlanCode = PADDLE_TO_ZOHO_PLAN_MAP[paddlePriceId]; 
+        if (!zohoPlanCode || zohoPlanCode.startsWith("ZOHO_PLAN_CODE_")) { 
              console.error(`ERROR: Could not find Zoho Plan Code mapping for Paddle Price ID ${paddlePriceId}. Check PADDLE_TO_ZOHO_PLAN_MAP.`);
              return;
         }
-        console.log(`Mapped to Zoho Plan Code: ${zohoPlanCode}`); // MODIFIED Log
+        console.log(`Mapped to Zoho Plan Code: ${zohoPlanCode}`); 
 
         // --- Step 6: Call Zoho functions ---
         console.log(`Handling transaction: Customer=${customerEmail}, Name=${customerName}, TxID=${transactionId}, Amount=${amount} ${currency}, ZohoPlanCode=${zohoPlanCode}`); // MODIFIED Log
