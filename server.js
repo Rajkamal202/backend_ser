@@ -1,17 +1,15 @@
 const express = require("express");
 const axios = require("axios");
 const app = express();
-require('dotenv').config(); // For API keys
+require('dotenv').config(); 
 
-app.use(express.json()); // Read JSON requests
+app.use(express.json());
 
-// --- Settings ---
-const ZOHO_API_BASE_URL = "https://sandbox.zohoapis.com"; // US Sandbox
-const ZOHO_BILLING_API_VERSION_PATH = "/billing/v1"; // Billing API v1
-const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN; // From .env
-const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID; // From .env
-const PADDLE_API_KEY = process.env.PADDLE_API_KEY; // From .env
-
+const ZOHO_API_BASE_URL = "https://sandbox.zohoapis.com";
+const ZOHO_BILLING_API_VERSION_PATH = "/billing/v1"; 
+const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN; 
+const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID; 
+const PADDLE_API_KEY = process.env.PADDLE_API_KEY; 
 
 const PADDLE_TO_ZOHO_PLAN_MAP = {
     "pri_01js3tjscp3sqvw4h4ngqb5d6h": "starter_yearly",
@@ -84,14 +82,13 @@ async function getZohoCustomerId(email, name) {
         } else {
             // Customer not found, try to create
             console.log(`Customer not found, creating: ${customerDisplayName}...`);
-            const createPayload = { display_name: customerDisplayName, email: email }; // 'display_name' is guess
+            const createPayload = { display_name: customerDisplayName, email: email }; 
             console.log("Creating Zoho customer payload:", JSON.stringify(createPayload));
             try {
                 const createResponse = await axios.post(ZOHO_CUSTOMERS_API_URL, createPayload, {
                     headers: { Authorization: AUTH_HEADER, ...ORG_HEADER, "Content-Type": "application/json" }
                 });
                 // Check response if customer created and ID returned
-                // ** WARNING: Check Billing docs for correct response structure! **
                 if (createResponse.data?.customer?.customer_id) {
                     const newCustomerId = createResponse.data.customer.customer_id;
                     console.log(`Created Zoho customer. ID: ${newCustomerId}`);
@@ -137,7 +134,7 @@ async function getZohoCustomerId(email, name) {
  * Need Zoho customer ID, Zoho Plan Code, amount, currency.
  * Return invoice ID or null.
  */
-// **** MODIFIED to accept zohoPlanCode ****
+
 async function createInvoiceInZoho(customerId, zohoPlanCode, amount, currency) {
     let createdInvoiceId = null;
     const ZOHO_INVOICES_API_URL = `${ZOHO_API_BASE_URL}${ZOHO_BILLING_API_VERSION_PATH}/invoices`;
@@ -151,18 +148,14 @@ async function createInvoiceInZoho(customerId, zohoPlanCode, amount, currency) {
     }
 
     try {
-        // --- Data to send to Zoho ---
-        // ** WARNING: Check Zoho Billing v1 docs for POST /invoices payload structure! **
+
         // This structure using 'plan' is a COMMON PATTERN but needs verification.
         const invoiceData = {
             customer_id: customerId,
-            // --- Example using Plan Code ---
+
             plan: {
                  plan_code: zohoPlanCode // Use the specific Plan Code passed to the function
             },
-            // Note: Often, amount and currency are derived from the plan in Zoho Billing.
-            // Verify if sending them here is needed or allowed.
-            // currency_code: currency,
         };
         console.log("Sending data to Zoho Billing Invoice:", JSON.stringify(invoiceData));
         console.log("Calling URL:", ZOHO_INVOICES_API_URL);
@@ -207,7 +200,6 @@ async function emailZohoInvoice(invoiceId, recipientEmail) {
     const ORG_HEADER = { "X-com-zoho-subscriptions-organizationid": ZOHO_ORGANIZATION_ID };
     try {
         console.log(`Trying email invoice ${invoiceId} to ${recipientEmail}`);
-        // ** WARNING: Check Billing docs for correct email payload! **
         const emailPayload = {
             to_mail_ids: [recipientEmail],
         };
@@ -347,7 +339,6 @@ app.post("/paddle-webhook", async (req, res) => {
     }
 });
 
-// --- Server Start ---
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
