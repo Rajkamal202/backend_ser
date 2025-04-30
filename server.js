@@ -5,7 +5,7 @@ require('dotenv').config();
 
 app.use(express.json());
 
-const ZOHO_API_BASE_URL = "https://sandbox.zohoapis.com";
+const ZOHO_API_BASE_URL = "https://sandbox.zohoapis.in";
 const ZOHO_BILLING_API_VERSION_PATH = "/billing/v1"; 
 const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN; 
 const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID; 
