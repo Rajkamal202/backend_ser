@@ -274,14 +274,22 @@ async function handleTransactionCompleted(eventData) {
         }
          console.log(`Paddle Price ID found: ${paddlePriceId}`);
 
-        // --- Step 5: Map Paddle Price ID to Zoho Plan Code
-        const zohoPlanCode = PADDLE_TO_ZOHO_PLAN_MAP[paddlePriceId]; 
-        if (!zohoPlanCode || zohoPlanCode.startsWith("ZOHO_PLAN_CODE_")) { 
-             console.error(`ERROR: Could not find Zoho Plan Code mapping for Paddle Price ID ${paddlePriceId}. Check PADDLE_TO_ZOHO_PLAN_MAP.`);
-             return;
-        }
-        console.log(`Mapped to Zoho Plan Code: ${zohoPlanCode}`); 
+        // --- Step 5: Map Paddle Price ID to Zoho Item ID --- // MODIFIED
+        const zohoItemId = PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP[paddlePriceId]; // Use Item ID Map
+        if (!zohoItemId || zohoItemId.startsWith("ZOHO_ITEM_ID_")) { // MODIFIED Check
+            console.error(`ERROR: Could not find Zoho Item ID mapping for Paddle Price ID ${paddlePriceId}. Check PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP.`);
+         return;
+         }
+        console.log(`Mapped to Zoho Item ID: ${zohoItemId}`); // MODIFIED Log
 
+// --- Step 6: Call Zoho functions ---
+console.log(`Handling transaction: ... ZohoItemID=${zohoItemId}`); // MODIFIED Log
+if (!customerEmail || amount <= 0 || !currency || !zohoItemId) { /* ... */ return; } // MODIFIED Check
+const zohoCustomerId = await getZohoCustomerId(customerEmail, customerName);
+if (zohoCustomerId) {
+    // Pass zohoItemId to the createInvoice function
+    const invoiceId = await createInvoiceInZoho(zohoCustomerId, zohoItemId, amount, currency); // Pass zohoItemId
+    // ... rest of logic
         // --- Step 6: Call Zoho functions ---
         console.log(`Handling transaction: Customer=${customerEmail}, Name=${customerName}, TxID=${transactionId}, Amount=${amount} ${currency}, ZohoPlanCode=${zohoPlanCode}`); // MODIFIED Log
 
