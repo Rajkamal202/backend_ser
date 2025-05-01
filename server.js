@@ -287,7 +287,7 @@ async function createInvoiceInZoho(customerId, zohoPlanCode, amount, currency) {
                 {
                     item_id: zohoItemId, // Use the looked-up Item ID
                     quantity: 1,
-                    // rate: amount, // Still verify if needed
+                    rate: amount, // Still verify if needed
                 }
             ]
         };
@@ -306,8 +306,17 @@ async function createInvoiceInZoho(customerId, zohoPlanCode, amount, currency) {
        // ... rest of try block ...
 
     } catch (error) {
-       // ... catch block ...
-    }
+     console.error(
+         "Error creating Zoho Billing invoice - Status:",
+         error.response?.status // Optional chaining just in case
+     );
+     // ---> MAKE SURE THIS LINE IS PRESENT AND ACTIVE <---
+     console.error(
+         "Data:",
+         JSON.stringify(error.response?.data || error.message) // Log response data or error message
+     );
+     // console.error("Failed Payload:", JSON.stringify(invoiceData)); // Optional for debugging
+ }
 
     return createdInvoiceId;
 }
