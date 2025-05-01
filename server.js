@@ -150,18 +150,16 @@ async function createInvoiceInZoho(customerId, zohoPlanCode, amount, currency) {
     try {
 
         // This structure using 'plan' is a COMMON PATTERN but needs verification.
-        const invoiceData = {
+       const invoiceData = {
             customer_id: customerId,
-            line_items: [ // Use line_items array
-                 {
-                     item_id: zohoItemId, // Use the specific Item ID
-                     quantity: 1
-                 }
+               line_items: [ // Use line_items array
+                   {
+                   item_id: zohoItemId, // Use the specific Item ID
+                   quantity: 1
+                  }
              ]
-            plan: {
-                 plan_code: zohoPlanCode // Use the specific Plan Code passed to the function
-            },
-        };
+          // Potentially add currency_code here if needed
+         };
         console.log("Sending data to Zoho Billing Invoice:", JSON.stringify(invoiceData));
         console.log("Calling URL:", ZOHO_INVOICES_API_URL);
         console.log("Using Org ID:", ZOHO_ORGANIZATION_ID);
