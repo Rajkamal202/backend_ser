@@ -1,8 +1,7 @@
 // Main application code (server.js) - Manual Token Version
 const express = require("express");
 const axios = require("axios");
-// Removed URLSearchParams as it's not needed without refresh
-const path = require('path');
+const path = require('path'); // Ensure path is required
 const app = express();
 require('dotenv').config();
 
@@ -13,40 +12,46 @@ app.use(express.json({
         }
     }
 }));
-app.use(express.static('public'));
+app.use(express.static('public')); // Serve files from 'public' folder
 
 // --- Settings ---
 const ZOHO_API_BASE_URL = "https://www.zohoapis.in"; // PRODUCTION INDIA
 const ZOHO_BILLING_API_VERSION_PATH = "/billing/v1";
+const ZOHO_TOKEN_URL = "https://accounts.zoho.in/oauth/v2/token"; // PRODUCTION INDIA
 
-// Zoho credentials from .env (Only Access Token and Org ID needed now)
+// Zoho credentials from .env
 const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN; // Manually updated Access Token
 const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID;
 
 // Paddle API Key from .env
 const PADDLE_API_KEY = process.env.PADDLE_API_KEY;
-const PADDLE_API_BASE_URL = process.env.NODE_ENV === 'production' ? "https://api.paddle.com" : "https://sandbox-api.paddle.com";
+// Determine Paddle API base URL based on Node environment
+const PADDLE_API_BASE_URL = process.env.NODE_ENV === 'production'
+    ? "https://api.paddle.com"
+    : "https://sandbox-api.paddle.com";
 
 
 // --- Mappings (MUST BE FILLED BY YOU) ---
 const PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP = {
-  
-    "pri_01js3tjscp3sqvw4h4ngqb5d6h": "starter_yearly",
-    "pri_01js3ty4vadz3hxn890a9yvax1": "pro_yearly",
-    "pri_01js3v0bh5yfs8k7gt4ya5nmwt": "enterprise_yearly"
+    // !! REPLACE placeholders with your actual Paddle Price IDs and Zoho Item IDs !!
+    "pri_01js3tjscp3sqvw4h4ngqb5d6h": "YOUR_ZOHO_ITEM_ID_FOR_STARTER",
+    "pri_01js3ty4vadz3hxn890a9yvax1": "YOUR_ZOHO_ITEM_ID_FOR_PRO",
+    "pri_01js3v0bh5yfs8k7gt4ya5nmwt": "YOUR_ZOHO_ITEM_ID_FOR_ENTERPRISE"
 };
 const ZOHO_ITEM_ID_TO_PADDLE_PRICE_ID_MAP = {
     // !! REPLACE placeholders with your actual Zoho Item IDs and Paddle Price IDs !!
-    "starter_yearly": "pri_01js3tjscp3sqvw4h4ngqb5d6h",
-    "pro_yearly" : "pri_01js3ty4vadz3hxn890a9yvax1",
-    "enterprise_yearly" : "pri_01js3v0bh5yfs8k7gt4ya5nmwt"
+    "YOUR_ZOHO_ITEM_ID_FOR_STARTER": "pri_01js3tjscp3sqvw4h4ngqb5d6h",
+    "YOUR_ZOHO_ITEM_ID_FOR_PRO": "pri_01js3ty4vadz3hxn890a9yvax1",
+    "YOUR_ZOHO_ITEM_ID_FOR_ENTERPRISE": "pri_01js3v0bh5yfs8k7gt4ya5nmwt"
 };
+// --- End Mappings ---
+
+// --- Helper Functions ---
 
 /**
  * Get customer details from Paddle using customer ID.
  */
 async function getPaddleCustomerDetails(paddleCustomerId) {
-    // (Code remains the same)
     if (!paddleCustomerId) { console.error("getPaddleCustomerDetails: Need Paddle Customer ID."); return null; }
     if (!PADDLE_API_KEY) { console.error("getPaddleCustomerDetails: PADDLE_API_KEY missing."); return null; }
     const PADDLE_CUSTOMER_URL = `${PADDLE_API_BASE_URL}/customers/${paddleCustomerId}`;
@@ -72,37 +77,28 @@ async function getPaddleCustomerDetails(paddleCustomerId) {
  */
 async function getZohoCustomerId(email, name) {
     const ZOHO_CUSTOMERS_API_URL = `${ZOHO_API_BASE_URL}${ZOHO_BILLING_API_VERSION_PATH}/customers`;
-    // ** Manually construct headers using current token **
     const AUTH_HEADER = `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`;
     const ORG_HEADER = { "X-com-zoho-subscriptions-organizationid": ZOHO_ORGANIZATION_ID };
-
     if (!email) { console.error("getZohoCustomerId: Email needed."); return null; }
     const customerDisplayName = name || email;
-
     try {
         console.log(`Searching Zoho Billing customer: ${email}`);
-        // ** Direct axios call **
         const searchResponse = await axios.get(ZOHO_CUSTOMERS_API_URL, {
             headers: { Authorization: AUTH_HEADER, ...ORG_HEADER },
             params: { email: email }
         });
-        // ** WARNING: Check Zoho Billing docs for correct response structure! **
         if (searchResponse.data?.customers?.length > 0) {
-            const customerId = searchResponse.data.customers[0].customer_id; // Check field name
+            const customerId = searchResponse.data.customers[0].customer_id;
             console.log(`Found Zoho customer. ID: ${customerId}`);
             return customerId;
         } else {
-             // Customer not found, try to create
              console.log(`Customer not found, creating: ${customerDisplayName}...`);
-             // ** WARNING: Check Billing docs for correct POST /customers fields! **
-             const createPayload = { display_name: customerDisplayName, email: email }; // 'display_name' is guess
+             const createPayload = { display_name: customerDisplayName, email: email };
              console.log("Creating Zoho customer payload:", JSON.stringify(createPayload));
              try {
-                 // ** Direct axios call **
                  const createResponse = await axios.post(ZOHO_CUSTOMERS_API_URL, createPayload, {
                      headers: { Authorization: AUTH_HEADER, ...ORG_HEADER, "Content-Type": "application/json" }
                  });
-                 // ** WARNING: Check Billing docs for correct response structure! **
                  if (createResponse.data?.customer?.customer_id) {
                      const newCustomerId = createResponse.data.customer.customer_id;
                      console.log(`Created Zoho customer. ID: ${newCustomerId}`);
@@ -114,28 +110,22 @@ async function getZohoCustomerId(email, name) {
              }
         }
     } catch (searchError) {
-         // Handle 404 as 'not found' and try creating
          if (searchError.response && searchError.response.status === 404) {
              console.log(`Zoho customer search 404 for ${email}, try create.`);
              const customerDisplayName = name || email;
              const createPayload = { display_name: customerDisplayName, email: email };
              console.log("Creating Zoho customer payload (after 404):", JSON.stringify(createPayload));
              try {
-                 // ** Direct axios call **
-                 const createResponse = await axios.post(ZOHO_CUSTOMERS_API_URL, createPayload, {
-                     headers: { Authorization: AUTH_HEADER, ...ORG_HEADER, "Content-Type": "application/json" }
-                 });
+                 const createResponse = await axios.post(ZOHO_CUSTOMERS_API_URL, createPayload, { headers: { Authorization: AUTH_HEADER, ...ORG_HEADER, "Content-Type": "application/json" } });
                  if (createResponse.data?.customer?.customer_id) {
                      const newCustomerId = createResponse.data.customer.customer_id;
                      console.log(`Created Zoho customer after 404. ID: ${newCustomerId}`);
                      return newCustomerId;
                  } else { console.error("Failed create after 404, bad response:", JSON.stringify(createResponse.data)); return null; }
              } catch (createError) {
-                 console.error("Error creating Zoho customer after 404 - Status:", createError.response?.status, "Data:", JSON.stringify(createError.response?.data || createError.message));
-                 return null;
+                 console.error("Error creating Zoho customer after 404 - Status:", createError.response?.status, "Data:", JSON.stringify(createError.response?.data || createError.message)); return null;
              }
         } else {
-             // Other search errors (like 401 Unauthorized, 400 Bad Request, 5xx Server Error)
              console.error("Error searching Zoho customer - Status:", searchError.response?.status, "Data:", JSON.stringify(searchError.response?.data || searchError.message));
              return null;
         }
@@ -148,12 +138,9 @@ async function getZohoCustomerId(email, name) {
 async function createInvoiceInZoho(customerId, zohoItemId, amount, currency) {
     let createdInvoiceId = null;
     const ZOHO_INVOICES_API_URL = `${ZOHO_API_BASE_URL}${ZOHO_BILLING_API_VERSION_PATH}/invoices`;
-    // ** Manually construct headers using current token **
     const AUTH_HEADER = `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`;
     const ORG_HEADER = { "X-com-zoho-subscriptions-organizationid": ZOHO_ORGANIZATION_ID };
-
     if (!zohoItemId || zohoItemId.startsWith("YOUR_ZOHO_ITEM_ID_")) { console.error(`Error creating invoice: Invalid Zoho Item ID: ${zohoItemId}.`); return null; }
-
     try {
         // ** WARNING: Check Zoho Billing v1 docs for POST /invoices payload structure! **
         const invoiceData = {
@@ -163,12 +150,9 @@ async function createInvoiceInZoho(customerId, zohoItemId, amount, currency) {
         };
         console.log("Sending data to Zoho Billing Invoice:", JSON.stringify(invoiceData));
         console.log("Calling URL:", ZOHO_INVOICES_API_URL);
-
-        // ** Direct axios call **
         const response = await axios.post(ZOHO_INVOICES_API_URL, invoiceData, {
             headers: { Authorization: AUTH_HEADER, ...ORG_HEADER, "Content-Type": "application/json" }
         });
-
         // ** WARNING: Check Billing docs for correct response structure! **
         if (response.data?.invoice?.invoice_id) {
             createdInvoiceId = response.data.invoice.invoice_id;
@@ -187,16 +171,13 @@ async function createInvoiceInZoho(customerId, zohoItemId, amount, currency) {
 async function emailZohoInvoice(invoiceId, recipientEmail) {
     if (!invoiceId || !recipientEmail) { console.error("Cannot email invoice: Missing ID or Email."); return; }
     const ZOHO_EMAIL_API_URL = `${ZOHO_API_BASE_URL}${ZOHO_BILLING_API_VERSION_PATH}/invoices/${invoiceId}/email`;
-    // ** Manually construct headers using current token **
     const AUTH_HEADER = `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`;
     const ORG_HEADER = { "X-com-zoho-subscriptions-organizationid": ZOHO_ORGANIZATION_ID };
-
     try {
         console.log(`Trying email invoice ${invoiceId} to ${recipientEmail}`);
         // ** WARNING: Check Billing docs for correct email payload! **
         const emailPayload = { to_mail_ids: [recipientEmail] };
         console.log("Sending Email Payload:", JSON.stringify(emailPayload));
-        // ** Direct axios call **
         const response = await axios.post(ZOHO_EMAIL_API_URL, emailPayload, {
             headers: { Authorization: AUTH_HEADER, ...ORG_HEADER, "Content-Type": "application/json" }
         });
@@ -212,13 +193,11 @@ async function emailZohoInvoice(invoiceId, recipientEmail) {
  */
 async function getZohoBillingPlans() {
     const ZOHO_PLANS_API_URL = `${ZOHO_API_BASE_URL}${ZOHO_BILLING_API_VERSION_PATH}/plans`;
-    // ** Manually construct headers using current token **
     const AUTH_HEADER = `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`;
     const ORG_HEADER = { "X-com-zoho-subscriptions-organizationid": ZOHO_ORGANIZATION_ID };
     const config = { headers: { Authorization: AUTH_HEADER, ...ORG_HEADER }, params: { status: 'active' } };
     console.log("Fetching active plans from Zoho Billing...");
     try {
-        // ** Direct axios call **
         const response = await axios.get(ZOHO_PLANS_API_URL, config );
         // ** WARNING: Check Billing docs for correct response structure for GET /plans! **
         if (response.data?.plans) {
@@ -258,7 +237,6 @@ async function getZohoBillingPlans() {
  * Main function for handling Paddle 'transaction.completed' webhook.
  */
 async function handleTransactionCompleted(eventData) {
-    // (This function's internal logic remains the same, it just calls the simplified Zoho functions now)
     try {
         const transactionId = eventData.data?.id;
         const paddleCustomerId = eventData.data?.customer_id;
@@ -343,8 +321,11 @@ app.get("/api/plans", async (req, res) => {
 });
 
 // --- Serve Frontend HTML ---
+// **** CORRECTED PATH ****
 app.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    // Looks for public/index.html relative to where server.js is run from
+    // If server.js is in /src, this looks for /public/index.html at the root
+    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
 
@@ -353,7 +334,6 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     // Check essential env vars
-    // Removed checks for client_id, secret, refresh_token
     if (!ZOHO_OAUTH_TOKEN) console.warn("Warning: ZOHO_OAUTH_TOKEN missing.");
     if (!ZOHO_ORGANIZATION_ID) console.warn("Warning: ZOHO_ORGANIZATION_ID missing.");
     if (!PADDLE_API_KEY) console.warn("Warning: PADDLE_API_KEY missing.");
