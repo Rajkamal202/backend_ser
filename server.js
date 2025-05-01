@@ -262,13 +262,11 @@ async function createInvoiceInZoho(customerId, zohoPlanCode, amount, currency) {
 
     return null;
   }
-
   try {
     // This structure using 'plan' is a COMMON PATTERN but needs verification.
 
     const invoiceData = {
       customer_id: customerId,
-
       quantity: 1,
 
       plan: {
@@ -327,9 +325,7 @@ async function createInvoiceInZoho(customerId, zohoPlanCode, amount, currency) {
 /**
 
  * Email invoice from Zoho Billing.
-
  * Need invoice ID and recipient email.
-
  */
 
 async function emailZohoInvoice(invoiceId, recipientEmail) {
