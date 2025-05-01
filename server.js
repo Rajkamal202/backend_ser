@@ -152,8 +152,12 @@ async function createInvoiceInZoho(customerId, zohoPlanCode, amount, currency) {
         // This structure using 'plan' is a COMMON PATTERN but needs verification.
         const invoiceData = {
             customer_id: customerId,
-            quantity: 1,
-
+            line_items: [ // Use line_items array
+                 {
+                     item_id: zohoItemId, // Use the specific Item ID
+                     quantity: 1
+                 }
+             ]
             plan: {
                  plan_code: zohoPlanCode // Use the specific Plan Code passed to the function
             },
