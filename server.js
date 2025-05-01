@@ -245,86 +245,90 @@ async function getZohoCustomerId(email, name) {
 async function createInvoiceInZoho(customerId, zohoPlanCode, amount, currency) {
     let createdInvoiceId = null;
     const ZOHO_INVOICES_API_URL = `${ZOHO_API_BASE_URL}${ZOHO_BILLING_API_VERSION_PATH}/invoices`;
-    const AUTH_HEADER = `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`;
+    const AUTH_HEADER = `Zoho-oauthtoken ${process.env.ZOHO_OAUTH_TOKEN}`;
     const ORG_HEADER = {
-        "X-com-zoho-subscriptions-organizationid": ZOHO_ORGANIZATION_ID,
+        "X-com-zoho-subscriptions-organizationid": process.env.ZOHO_ORGANIZATION_ID,
     };
 
-    // --- The map definition should be here (ensure it has the correct numerical IDs) ---
     const ZOHO_PLAN_CODE_TO_ITEM_ID_MAP = {
         "starter_yearly": "2446175000000037035",
         "pro_yearly": "2446175000000037035",
         "enterprise_yearly": "2446175000000037035"
     };
-    // --- End of map definition ---
-
-    // --- ADD THIS DEBUG LOG ---
-    console.log("DEBUG: Current ZOHO_PLAN_CODE_TO_ITEM_ID_MAP:", JSON.stringify(ZOHO_PLAN_CODE_TO_ITEM_ID_MAP));
-    // --- END DEBUG LOG ---
 
     const zohoItemId = ZOHO_PLAN_CODE_TO_ITEM_ID_MAP[zohoPlanCode];
 
-     // --- ADD THIS DEBUG LOG ---
-     console.log(`DEBUG: Looked up zohoPlanCode "${zohoPlanCode}", found zohoItemId: "${zohoItemId}"`);
-     // --- END DEBUG LOG ---
-
-
-    // Check if we received a valid Zoho Plan Code / Item ID based on the LOOKUP result
-    if (!zohoItemId || typeof zohoItemId !== 'string' || zohoItemId.length < 10) { // Check if it looks like a real ID now
+    if (!zohoItemId || typeof zohoItemId !== 'string' || zohoItemId.length < 10) {
         console.error(
            `Error creating invoice: Invalid or missing Zoho Item ID found for Plan Code: "${zohoPlanCode}". Looked up value: "${zohoItemId}". Check ZOHO_PLAN_CODE_TO_ITEM_ID_MAP.`
        );
        return null;
     }
-    // Original log message removed/modified as the debug log above is more specific now.
-    // console.log(`Using Zoho Plan Code "${zohoPlanCode}" as the Zoho Item ID.`); // REMOVE or comment out this old log line
-
 
     try {
         const invoiceData = {
             customer_id: customerId,
             line_items: [
                 {
-                    item_id: zohoItemId, 
-                    product_id: zohoItemId,
+                    item_id: zohoItemId,
+                    product_id: zohoItemId, // Keep this from last attempt
+                    // --- ADD NAME AND DESCRIPTION ---
+                    name: "Globodox Subscription Item", // Or fetch dynamically if possible
+                    description: `Plan: ${zohoPlanCode}`, // Example description
+                    // --- END ADDITIONS ---
                     quantity: 1,
-                    rate: amount, // Still verify if needed
+                    rate: amount,
+                    // You might also need tax_id here if applicable and not automatically determined by Zoho
+                    // tax_id: "YOUR_ZOHO_TAX_ID_IF_NEEDED",
                 }
             ]
         };
 
         console.log(
             "Sending data to Zoho Billing Invoice:",
-            JSON.stringify(invoiceData)
+            JSON.stringify(invoiceData) // Log the NEW payload
         );
         console.log("Calling URL:", ZOHO_INVOICES_API_URL);
-        console.log("Using Org ID:", ZOHO_ORGANIZATION_ID);
+        // console.log("Using Org ID:", process.env.ZOHO_ORGANIZATION_ID); // Already in header
 
-       const response = await axios.post(ZOHO_INVOICES_API_URL, invoiceData, {
-            headers: {
-                Authorization: AUTH_HEADER, // Use the AUTH_HEADER defined above
-                "Content-Type": "application/json",
-                ...ORG_HEADER // Use the ORG_HEADER defined above
-            }
-        });
-       // ... rest of try block ...
+        const headers = {
+            Authorization: AUTH_HEADER,
+            "Content-Type": "application/json",
+            ...ORG_HEADER
+        };
 
+        const response = await axios.post(ZOHO_INVOICES_API_URL, invoiceData, { headers });
+
+        if (response.data?.invoice?.invoice_id) {
+            createdInvoiceId = response.data.invoice.invoice_id;
+            console.log("Invoice Creation Response:", response.data.message);
+            console.log(
+                "Invoice created, Number:",
+                response.data.invoice.invoice_number,
+                "ID:",
+                createdInvoiceId
+            );
+        } else {
+            console.error(
+                "Invoice created but ID missing in response",
+                JSON.stringify(response.data)
+            );
+        }
     } catch (error) {
-     console.error(
-         "Error creating Zoho Billing invoice - Status:",
-         error.response?.status // Optional chaining just in case
-     );
-     // ---> MAKE SURE THIS LINE IS PRESENT AND ACTIVE <---
-     console.error(
-         "Data:",
-         JSON.stringify(error.response?.data || error.message) // Log response data or error message
-     );
-     // console.error("Failed Payload:", JSON.stringify(invoiceData)); // Optional for debugging
- }
+        console.error(
+            "Error creating Zoho Billing invoice - Status:",
+            error.response?.status
+        );
+        console.error(
+            "Data:",
+            JSON.stringify(error.response?.data || error.message)
+        );
+        // Optional: Log the payload that failed again if needed
+        // console.error("Failed Payload:", JSON.stringify(invoiceData));
+    }
 
     return createdInvoiceId;
 }
-
  // * Email invoice from Zoho Billing.
  // * Need invoice ID and recipient email.
  
