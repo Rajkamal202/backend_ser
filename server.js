@@ -23,9 +23,9 @@ const PADDLE_TO_ZOHO_PLAN_MAP = {
 
 // Example Map - Replace with YOUR actual Zoho Item IDs
 const ZOHO_PLAN_CODE_TO_ITEM_ID_MAP = {
-    "starter_yearly":  "starter_yearly", // e.g., "2446175000000XXXXXX"
-    "pro_yearly": "pro_yearly",     // e.g., "2446175000000YYYYYY"
-    "enterprise_yearly": "enterprise_yearly", // e.g., "2446175000000ZZZZZZ"
+    "starter_yearly": "2446175000000037035", // Maps to 'globodox' Product ID
+    "pro_yearly": "2446175000000037035",     // Maps to 'globodox' Product ID
+    "enterprise_yearly": "2446175000000037035" // Maps to 'globodox' Product ID
 };
 
 async function getPaddleCustomerDetails(paddleCustomerId) {
