@@ -241,7 +241,6 @@ async function getZohoCustomerId(email, name) {
   }
 }
 
-
 async function createInvoiceInZoho(customerId, zohoPlanCode, amount, currency) {
     let createdInvoiceId = null;
     const ZOHO_INVOICES_API_URL = `${ZOHO_API_BASE_URL}${ZOHO_BILLING_API_VERSION_PATH}/invoices`;
@@ -276,24 +275,27 @@ async function createInvoiceInZoho(customerId, zohoPlanCode, amount, currency) {
     }
 
     try {
-        // --- REVERT TO SIMPLE PAYLOAD ---
-        // Sending only the essential item_id and quantity.
-        // If this fails, the issue is likely not the payload structure but
-        // potentially the item configuration in Zoho or an API nuance.
+        // --- FINAL ATTEMPT: Add plan_code inside line_items ---
+        // Based on the hypothesis that items linked to plans might require
+        // the plan context within the line item itself.
         const invoiceData = {
             customer_id: customerId,
             line_items: [
                 {
-                    item_id: zohoItemId, // Use the looked-up Item ID
-                    quantity: 1
-                    // REMOVED: product_id, name, description, rate
+                    item_id: zohoItemId,     // Keep the item ID
+                    plan_code: zohoPlanCode, // <<<--- ADD THE PLAN CODE HERE
+                    quantity: 1,
+                    rate: amount             // Keep the rate
+                    // Optional: product_id: zohoItemId (Can try adding back if needed)
+                    // Optional: name: "...", description: "..." (Can try adding back if needed)
+                    // Optional: tax_id: "..." (Add if needed)
                 }
             ]
         };
-        // --- END REVERT ---
+        // --- END PAYLOAD MODIFICATION ---
 
         console.log(
-            "Sending data to Zoho Billing Invoice (Simplified Payload):", // Updated log message
+            "Sending data to Zoho Billing Invoice (Plan Code Payload):", // Updated log message
             JSON.stringify(invoiceData)
         );
         console.log("Calling URL:", ZOHO_INVOICES_API_URL);
@@ -339,6 +341,7 @@ async function createInvoiceInZoho(customerId, zohoPlanCode, amount, currency) {
 
     return createdInvoiceId;
 }
+
 
  // * Email invoice from Zoho Billing.
  // * Need invoice ID and recipient email.
