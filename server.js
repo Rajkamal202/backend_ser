@@ -285,7 +285,8 @@ async function createInvoiceInZoho(customerId, zohoPlanCode, amount, currency) {
             customer_id: customerId,
             line_items: [
                 {
-                    item_id: zohoItemId, // Use the looked-up Item ID
+                    item_id: zohoItemId, 
+                    product_id: zohoItemId,
                     quantity: 1,
                     rate: amount, // Still verify if needed
                 }
