@@ -299,10 +299,13 @@ async function createInvoiceInZoho(customerId, zohoPlanCode, amount, currency) {
         console.log("Calling URL:", ZOHO_INVOICES_API_URL);
         console.log("Using Org ID:", ZOHO_ORGANIZATION_ID);
 
-        const response = await axios.post(ZOHO_INVOICES_API_URL, invoiceData, {
-            headers: { /* ... headers ... */ },
+       const response = await axios.post(ZOHO_INVOICES_API_URL, invoiceData, {
+            headers: {
+                Authorization: AUTH_HEADER, // Use the AUTH_HEADER defined above
+                "Content-Type": "application/json",
+                ...ORG_HEADER // Use the ORG_HEADER defined above
+            }
         });
-
        // ... rest of try block ...
 
     } catch (error) {
