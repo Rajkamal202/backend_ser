@@ -13,14 +13,10 @@ app.use(express.json({
 }));
 app.use(express.static('public'));
 
-// --- Settings ---
-// Zoho API Base URL - Using US Datacenter (.com)
-// Use SANDBOX URL for testing, PRODUCTION URL for live
 const ZOHO_API_BASE_URL = process.env.NODE_ENV === 'production'
     ? "https://www.zohoapis.com"
-    : "https://sandbox.zohoapis.com"; // Ensure this is correct for US Sandbox
+    : "https://sandbox.zohoapis.com"; 
 
-// Zoho Billing API v1 path
 const ZOHO_BILLING_API_VERSION_PATH = "/billing/v1";
 
 // Zoho Accounts Token Endpoint URL for US Datacenter
