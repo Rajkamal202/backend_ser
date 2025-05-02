@@ -34,9 +34,9 @@ const PADDLE_API_BASE_URL = process.env.NODE_ENV === 'production'
 // --- Mappings (MUST BE FILLED BY YOU) ---
 const PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP = {
     // !! REPLACE placeholders with your actual Paddle Price IDs and Zoho Item IDs !!
-    "pri_01js3tjscp3sqvw4h4ngqb5d6h": "YOUR_ZOHO_ITEM_ID_FOR_STARTER",
-    "pri_01js3ty4vadz3hxn890a9yvax1": "YOUR_ZOHO_ITEM_ID_FOR_PRO",
-    "pri_01js3v0bh5yfs8k7gt4ya5nmwt": "YOUR_ZOHO_ITEM_ID_FOR_ENTERPRISE"
+    "pri_01js3tjscp3sqvw4h4ngqb5d6h": "6250588000000100001",
+    "pri_01js3ty4vadz3hxn890a9yvax1": "6250588000000100001",
+    "pri_01js3v0bh5yfs8k7gt4ya5nmwt": "6250588000000100001"
 };
 // --- End Mappings ---
 
