@@ -15,9 +15,10 @@ const PADDLE_API_BASE_URL = process.env.PADDLE_SANDBOX_API_URL?.trim() || "https
 
 // Mappings
 const PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP = {
-    "pri_01js3tjscp3sqvw4h4ngqb5d6h": "6250588000000XXXXXX",
-    "pri_01js3ty4vadz3hxn890a9yvax1": "6250588000000YYYYYY",
-    "pri_01js3v0bh5yfs8k7gt4ya5nmwt": "6250588000000ZZZZZZ"
+    "pri_01js3tjscp3sqvw4h4ngqb5d6h": "6250588000000100001",
+    "pri_01js3ty4vadz3hxn890a9yvax1": "6250588000000100001",
+    "pri_01js3v0bh5yfs8k7gt4ya5nmwt": "6250588000000100001"
+
 };
 
 
