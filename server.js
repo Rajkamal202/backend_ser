@@ -5,31 +5,25 @@ require("dotenv").config();
 
 app.use(express.json());
 
-// --- Configuration & Constants ---
-// Use the base URL without the version path, version path added in functions
-const ZOHO_API_BASE_URL ="https://www.zohoapis.com"; // Use .com for USA Production
-// Removed ZOHO_BILLING_API_VERSION_PATH as it's redundant with corrected ZOHO_API_BASE_URL
+
+const ZOHO_API_BASE_URL ="https://www.zohoapis.com"; 
 
 const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN;
 const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID;
 const PADDLE_API_KEY = process.env.PADDLE_API_KEY;
 
-// --- Mappings ---
-// Renamed for clarity: Paddle Price ID maps directly to Zoho Item ID for invoices
-// You MUST replace the placeholder IDs with actual Zoho Item IDs from your USA Production org.
 const PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP = {
-    // Example: 'your_paddle_price_id_1': 'your_zoho_item_id_1',
-    // Example: 'your_paddle_price_id_2': 'your_zoho_item_id_2',
-    "pri_01js3tjscp3sqvw4h4ngqb5d6h": "6250588000000100001", // Placeholder Zoho Item ID
-    "pri_01js3ty4vadz3hxn890a9yvax1": "6250588000000100001", // Placeholder Zoho Item ID
-    "pri_01js3v0bh5yfs8k7gt4ya5nmwt": "6250588000000100001" // Placeholder Zoho Item ID
+  
+    "pri_01js3tjscp3sqvw4h4ngqb5d6h": "6250588000000100001",
+    "pri_01js3ty4vadz3hxn890a9yvax1": "6250588000000100001", 
+    "pri_01js3v0bh5yfs8k7gt4ya5nmwt": "6250588000000100001" 
 };
 
 
 
 // --- Paddle API Function ---
 async function getPaddleCustomerDetails(paddleCustomerId) {
-    const PADDLE_API_BASE_URL = "https://sandbox-api.paddle.com"; // Use sandbox for testing Paddle API
+    const PADDLE_API_BASE_URL = "https://sandbox-api.paddle.com"; 
 
     if (!paddleCustomerId) {
         console.error("getPaddleCustomerDetails: Need Paddle Customer ID.");
@@ -83,12 +77,6 @@ async function getPaddleCustomerDetails(paddleCustomerId) {
     }
 }
 
-// --- Zoho API Functions ---
-
-// Ensure these global variables are defined at the top of your file:
-// const ZOHO_API_BASE_URL = process.env.ZOHO_API_URL || "https://www.zohoapis.com";
-// const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN;
-// const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID;
 
 async function getZohoCustomerId(email, name) {
     const ZOHO_CUSTOMERS_API_URL = `${ZOHO_API_BASE_URL}/billing/v1/customers`;
@@ -106,7 +94,6 @@ async function getZohoCustomerId(email, name) {
     const customerDisplayName = name || email;
     const searchParams = { search_text: email };
 
-    // --- Function to handle customer creation (called if not found or specific search error occurs) ---
     const createCustomer = async () => {
          console.log(`Attempting to create customer: ${customerDisplayName}...`);
          const createPayload = { display_name: customerDisplayName, email: email };
@@ -114,7 +101,7 @@ async function getZohoCustomerId(email, name) {
 
          try {
              const createResponse = await axios.post(
-                 ZOHO_CUSTOMERS_API_URL, // POST to the same /customers endpoint
+                 ZOHO_CUSTOMERS_API_URL, 
                  createPayload,
                  {
                      headers: {
@@ -134,20 +121,18 @@ async function getZohoCustomerId(email, name) {
                      "Failed to create Zoho customer, bad response data:",
                      JSON.stringify(createResponse.data)
                  );
-                 return null; // Return null if creation response is missing ID
+                 return null; 
              }
          } catch (createError) {
-             // --- Error Handling for Create Customer ---
              console.error(
                  "Error creating Zoho customer - Status:",
                  createError.response?.status,
                  "Data:",
                  JSON.stringify(createError.response?.data || createError.message)
              );
-             return null; // Return null on create error
+             return null;
          }
     };
-    // --- End of createCustomer function ---
 
 
     try {
@@ -230,31 +215,20 @@ async function createInvoiceInZoho(customerId, paddlePriceId, amount, currency) 
         return null;
     }
 
-    // --- Adjusted Invoice Payload Structure based on Zoho v1 Docs ---
-    // Array name is 'invoice_items'
-    // Linking field is 'product_id'
-    // Unit price field is 'price'
-
     const invoiceData = {
         customer_id: customerId,
-        invoice_items: [ // --- Renamed from 'line_items' to match documentation ---
+        invoice_items: [
             {
-                product_id: zohoProductId, // --- Renamed from 'item_id' to match documentation ---
-                quantity: 1,             // Assuming 1 unit is purchased per transaction
-                price: amount            // --- Renamed from 'rate' to match documentation, use Paddle amount as unit price ---
-                // Refer to Zoho Docs for other potentially useful fields like 'name', 'description', 'tax_id', etc.
-                // Although product_id often pulls name/description, sometimes providing them makes invoices clearer.
+                product_id: zohoProductId,
+                quantity: 1,             
+                price: amount          
             }
         ],
         // Add currency code at the top level as shown in docs
         currency_code: currency,
-        // Add invoice date - crucial for accounting
         date: new Date().toISOString().split('T')[0], // Format: YYYY-MM-DD
         // Add reference number (optional but good practice, using Paddle Price ID or Tx ID)
         reference_number: paddlePriceId // Or Paddle transaction ID if available/suitable
-        // Refer to docs for other top-level fields you might need (e.g., notes, terms)
-        // notes: "Thank you for your purchase!",
-        // terms: "Payment due upon receipt."
     };
     // --- END PAYLOAD MODIFICATION ---
 
