@@ -339,7 +339,7 @@ async function emailZohoInvoice(invoiceId, recipientEmail) {
     return;
   }
 
-  const ZOHO_EMAIL_API_URL = `${ZOHO_API_BASE_URL}${ZOHO_BILLING_API_VERSION_PATH}/invoices/${invoiceId}/email`;
+  const ZOHO_EMAIL_API_URL = `${ZOHO_API_BASE_URL}/invoices/${invoiceId}/email`;
 
   const AUTH_HEADER = `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`;
 
