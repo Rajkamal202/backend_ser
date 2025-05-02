@@ -533,8 +533,21 @@ app.post("/paddle-webhook", async (req, res) => {
 // --- Server Start ---
 const PORT = process.env.PORT || 3000;
 
+
+
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+   console.log(`Server running on port ${PORT}`);
+
+    // --- DEBUG LOGGING: Show Environment Variables Loaded ---
+    console.log(`--- Environment Variables Loaded ---`);
+    console.log(` ZOHO_API_BASE_URL: ${ZOHO_API_BASE_URL}`);
+    // CAUTION: Do not log the full token in production logs! Obfuscate or remove later.
+    console.log(` ZOHO_OAUTH_TOKEN (first 10 chars): ${ZOHO_OAUTH_TOKEN ? ZOHO_OAUTH_TOKEN.substring(0, 10) + '...' : 'Not Set'}`);
+    console.log(` ZOHO_ORGANIZATION_ID: ${ZOHO_ORGANIZATION_ID}`);
+    console.log(` PADDLE_API_KEY (present): ${!!PADDLE_API_KEY}`); // Just check if present
+    console.log(`------------------------------------`);
+    // --- END DEBUG LOGGING ---
 
     // Check for required environment variables on startup
     if (!ZOHO_OAUTH_TOKEN) console.warn("Warning: ZOHO_OAUTH_TOKEN missing.");
