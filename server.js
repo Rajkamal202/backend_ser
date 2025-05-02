@@ -29,7 +29,7 @@ const PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP = {
 
 // --- Paddle API Function ---
 async function getPaddleCustomerDetails(paddleCustomerId) {
-    const PADDLE_API_BASE_URL = process.env.PADDLE_SANDBOX_API_URL || "https://sandbox-api.paddle.com"; // Use sandbox for testing Paddle API
+    const PADDLE_API_BASE_URL = "https://sandbox-api.paddle.com"; // Use sandbox for testing Paddle API
 
     if (!paddleCustomerId) {
         console.error("getPaddleCustomerDetails: Need Paddle Customer ID.");
