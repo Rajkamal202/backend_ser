@@ -26,10 +26,7 @@ const ZOHO_TOKEN_URL = "https://accounts.zoho.com/oauth/v2/token"; // Correct US
 const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN; // Manually updated Access Token
 const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID; // Use correct ID for Sandbox or Prod
 const PADDLE_API_KEY = process.env.PADDLE_API_KEY; // Use correct key for Sandbox or Prod
-const PADDLE_API_BASE_URL = process.env.NODE_ENV === 'production'
-    ? "https://api.paddle.com"
-    : "https://sandbox-api.paddle.com";
-
+const PADDLE_API_BASE_URL = "https://sandbox-api.paddle.com";
 
 // --- Mappings (MUST BE FILLED BY YOU) ---
 const PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP = {
