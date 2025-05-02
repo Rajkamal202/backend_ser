@@ -196,10 +196,7 @@ async function getZohoCustomerId(email, name) {
         return null; // Return null on search failure
     }
 }
-/**
- * Create invoice in Zoho Billing.
- * Needs customer ID, item ID, amount, and currency.
- */
+
 async function createInvoiceInZoho(customerId, paddlePriceId, amount, currency) {
     let createdInvoiceId = null;
     // Corrected URL using base + endpoint
@@ -210,50 +207,50 @@ async function createInvoiceInZoho(customerId, paddlePriceId, amount, currency) 
         "X-com-zoho-subscriptions-organizationid": ZOHO_ORGANIZATION_ID,
     };
 
-    // Use the globally defined mapping
-    const zohoItemId = PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP[paddlePriceId];
+    // Use the globally defined mapping - Ensure these are ZOHO *PRODUCT* IDs now
+    // based on the documentation field name "product_id"
+    const zohoProductId = PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP[paddlePriceId]; // Assuming your map values are actually Product IDs
 
-    // Validate the looked-up Item ID
-    if (!zohoItemId || typeof zohoItemId !== 'string' || zohoItemId.length === 0 || zohoItemId.startsWith("6250588000000XXXXXX")) { // Check for placeholder too
+    // Validate the looked-up Product ID
+    // Adjusted validation message as it's now zohoProductId
+    if (!zohoProductId || typeof zohoProductId !== 'string' || zohoProductId.length === 0 || zohoProductId.startsWith("6250588000000XXX")) { // Check for placeholder too
         console.error(
-            `Error creating invoice: Invalid, missing, or placeholder Zoho Item ID found for Paddle Price ID: "${paddlePriceId}". Looked up value: "${zohoItemId}". Check PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP.`
+           `Error creating invoice: Invalid, missing, or placeholder Zoho PRODUCT ID found for Paddle Price ID: "${paddlePriceId}". Looked up value: "${zohoProductId}". Check PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP (should map to Zoho Product IDs).`
         );
         return null;
     }
 
-    // --- Verify Invoice Payload Structure with Zoho Docs ---
-    // Consult Zoho Books/Billing API v1 documentation for POST /invoices
-    // Minimum fields usually include customer_id and line_items.
-    // line_items is an array of objects. Using item_id is standard.
-    // When using item_id, often quantity is needed.
-    // Providing 'rate' overrides the item's standard price. If you want the Paddle amount
-    // to be the exact line item total for quantity 1, include 'rate'.
-    // 'plan_code' is typically NOT part of a standard invoice line item using item_id. Remove it.
-    // 'currency_code' is often required at the top level.
+    // --- Adjusted Invoice Payload Structure based on Zoho v1 Docs ---
+    // Array name is 'invoice_items'
+    // Linking field is 'product_id'
+    // Unit price field is 'price'
 
     const invoiceData = {
         customer_id: customerId,
-        line_items: [
+        invoice_items: [ // --- Renamed from 'line_items' to match documentation ---
             {
-                item_id: zohoItemId, // Use the mapped item ID
-                quantity: 1,         // Assuming 1 unit is purchased per transaction
-                rate: amount         // Use the amount from Paddle as the rate (overrides item price)
-                // DO NOT include plan_code here for standard invoices
-                // Other potential fields based on docs: name, description, tax_id etc.
+                product_id: zohoProductId, // --- Renamed from 'item_id' to match documentation ---
+                quantity: 1,             // Assuming 1 unit is purchased per transaction
+                price: amount            // --- Renamed from 'rate' to match documentation, use Paddle amount as unit price ---
+                // Refer to Zoho Docs for other potentially useful fields like 'name', 'description', 'tax_id', etc.
+                // Although product_id often pulls name/description, sometimes providing them makes invoices clearer.
             }
         ],
-        // Add currency code at the top level if required by docs
+        // Add currency code at the top level as shown in docs
         currency_code: currency,
         // Add invoice date - crucial for accounting
-        date: new Date().toISOString().split('T')[0], // Format YYYY-MM-DD
-        // Optional: reference_number (maybe Paddle transaction ID)
+        date: new Date().toISOString().split('T')[0], // Format: YYYY-MM-DD
+        // Add reference number (optional but good practice, using Paddle Price ID or Tx ID)
         reference_number: paddlePriceId // Or Paddle transaction ID if available/suitable
+        // Refer to docs for other top-level fields you might need (e.g., notes, terms)
+        // notes: "Thank you for your purchase!",
+        // terms: "Payment due upon receipt."
     };
     // --- END PAYLOAD MODIFICATION ---
 
     try {
         console.log(
-            "Sending data to Zoho Billing Invoice:",
+            "Sending data to Zoho Billing Invoice (v1 structure):", // Updated log message
             JSON.stringify(invoiceData)
         );
         console.log("Calling URL:", ZOHO_INVOICES_API_URL);
@@ -299,8 +296,6 @@ async function createInvoiceInZoho(customerId, paddlePriceId, amount, currency) 
 
     return createdInvoiceId;
 }
-
-
 /**
  * Email invoice from Zoho Billing.
  * Need invoice ID and recipient email.
