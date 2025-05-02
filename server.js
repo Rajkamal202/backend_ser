@@ -20,9 +20,9 @@ const PADDLE_API_KEY = process.env.PADDLE_API_KEY;
 const PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP = {
     // Example: 'your_paddle_price_id_1': 'your_zoho_item_id_1',
     // Example: 'your_paddle_price_id_2': 'your_zoho_item_id_2',
-    "pri_01js3tjscp3sqvw4h4ngqb5d6h": "6250588000000XXXXXX", // Placeholder Zoho Item ID
-    "pri_01js3ty4vadz3hxn890a9yvax1": "6250588000000YYYYYY", // Placeholder Zoho Item ID
-    "pri_01js3v0bh5yfs8k7gt4ya5nmwt": "6250588000000ZZZZZZ" // Placeholder Zoho Item ID
+    "pri_01js3tjscp3sqvw4h4ngqb5d6h": "6250588000000100001", // Placeholder Zoho Item ID
+    "pri_01js3ty4vadz3hxn890a9yvax1": "6250588000000100001", // Placeholder Zoho Item ID
+    "pri_01js3v0bh5yfs8k7gt4ya5nmwt": "6250588000000100001" // Placeholder Zoho Item ID
 };
 
 
