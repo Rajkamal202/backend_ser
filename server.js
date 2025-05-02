@@ -7,7 +7,7 @@ const app = express();
 require("dotenv").config();
 app.use(express.json());
 
-const ZOHO_API_BASE_URL = "https://www.zohoapis.com";
+const ZOHO_API_BASE_URL = "https://www.zohoapis.com/billing/v1";
 
 const ZOHO_BILLING_API_VERSION_PATH = "/billing/v1";
 const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN;
@@ -91,7 +91,7 @@ async function getPaddleCustomerDetails(paddleCustomerId) {
  */
 
 async function getZohoCustomerId(email, name) {
-  const ZOHO_CUSTOMERS_API_URL = `${ZOHO_API_BASE_URL}${ZOHO_BILLING_API_VERSION_PATH}/customers`;
+  const ZOHO_CUSTOMERS_API_URL = `${ZOHO_API_BASE_URL}/customers`;
 
   const AUTH_HEADER = `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`;
 
@@ -228,7 +228,7 @@ async function getZohoCustomerId(email, name) {
 
 async function createInvoiceInZoho(customerId, zohoPlanCode, amount, currency) {
     let createdInvoiceId = null;
-    const ZOHO_INVOICES_API_URL = `${ZOHO_API_BASE_URL}${ZOHO_BILLING_API_VERSION_PATH}/invoices`;
+    const ZOHO_INVOICES_API_URL = `${ZOHO_API_BASE_URL}/invoices`;
 
     // Use environment variables directly for headers
     const AUTH_HEADER = `Zoho-oauthtoken ${process.env.ZOHO_OAUTH_TOKEN}`;
