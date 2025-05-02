@@ -13,9 +13,7 @@ app.use(express.json({
 }));
 app.use(express.static('public'));
 
-const ZOHO_API_BASE_URL = process.env.NODE_ENV === 'production'
-    ? "https://www.zohoapis.com"
-    : "https://sandbox.zohoapis.com"; 
+const ZOHO_API_BASE_URL = "https://www.zohoapis.com"
 
 const ZOHO_BILLING_API_VERSION_PATH = "/billing/v1";
 
