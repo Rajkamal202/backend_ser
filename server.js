@@ -5,10 +5,8 @@ require("dotenv").config();
 
 app.use(express.json());
 
-// --- Configuration & Constants ---
-// Use the base URL without the version path, version path added in functions
-// Read and TRIM environment variables to remove potential whitespace
-const ZOHO_API_BASE_URL = process.env.ZOHO_API_URL?.trim() || "https://www.zohoapis.com"; // Add trim here too if env var is used
+
+const ZOHO_API_BASE_URL = process.env.ZOHO_API_URL?.trim() || "https://www.zohoapis.com"; 
 const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN?.trim(); // *** ADDED .trim() ***
 const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID?.trim(); // *** ADDED .trim() ***
 const PADDLE_API_KEY = process.env.PADDLE_API_KEY?.trim(); // Added trim for Paddle key too
