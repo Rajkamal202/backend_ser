@@ -5,6 +5,8 @@ require("dotenv").config();
 
 app.use(express.json());
 
+// --- Configuration & Constants ---
+// Use the base URL without the version path, version path added in functions
 // Read and TRIM environment variables to remove potential whitespace
 const ZOHO_API_BASE_URL = process.env.ZOHO_API_URL?.trim() || "https://www.zohoapis.com"; // Add trim here too if env var is used
 const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN?.trim(); // *** ADDED .trim() ***
@@ -12,11 +14,15 @@ const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID?.trim(); // *** AD
 const PADDLE_API_KEY = process.env.PADDLE_API_KEY?.trim(); // Added trim for Paddle key too
 
 
-const PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP = {
-  
-    "pri_01js3tjscp3sqvw4h4ngqb5d6h": "6250588000000100001", // Replace with actual Zoho Product IDs
-    "pri_01js3ty4vadz3hxn890a9yvax1": "6250588000000100001", // Replace with actual Zoho Product IDs
-    "pri_01js3v0bh5yfs8k7gt4ya5nmwt": "6250588000000100001" // Replace with actual Zoho Product IDs
+// --- Mappings ---
+// Renamed for clarity: Paddle Price ID maps directly to Zoho Product ID for invoices (based on docs)
+// You MUST replace the placeholder IDs with actual Zoho PRODUCT IDs from your USA Production org.
+const PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP = { // Renamed for clarity, but maps Paddle Price ID to Zoho Product ID
+    // Example: 'your_paddle_price_id_1': 'your_zoho_product_id_1',
+    // Example: 'your_paddle_price_id_2': 'your_zoho_product_id_2',
+    "pri_01js3tjscp3sqvw4h4ngqb5d6h": "6250588000000XXXXXX", // Placeholder Zoho Product ID
+    "pri_01js3ty4vadz3hxn890a9yvax1": "6250588000000YYYYYY", // Placeholder Zoho Product ID
+    "pri_01js3v0bh5yfs8k7gt4ya5nmwt": "6250588000000ZZZZZZ" // Placeholder Zoho Product ID
 };
 
 
@@ -76,7 +82,10 @@ async function getPaddleCustomerDetails(paddleCustomerId) {
     }
 }
 
-
+/**
+ * Find Zoho customer using email. If not found, create new one.
+ * Uses Zoho Billing API. Returns Zoho customer ID.
+ */
 async function getZohoCustomerId(email, name) {
     // ZOHO_API_BASE_URL is trimmed at the top level
     const ZOHO_CUSTOMERS_API_URL = `${ZOHO_API_BASE_URL}/billing/v1/customers`;
@@ -95,7 +104,7 @@ async function getZohoCustomerId(email, name) {
     const customerDisplayName = name || email;
     const searchParams = { search_text: email };
 
-    // --- Function to handle customer creation ---
+    // --- Function to handle customer creation (called if not found or specific search error occurs) ---
     const createCustomer = async () => {
          console.log(`Attempting to create customer: ${customerDisplayName}...`);
          const createPayload = { display_name: customerDisplayName, email: email };
@@ -123,8 +132,8 @@ async function getZohoCustomerId(email, name) {
                  createPayload,
                  {
                      headers: {
-                         Authorization: AUTH_HEADER, // Use the full AUTH_HEADER string
-                         ...ORG_HEADER,
+                         Authorization: AUTH_HEADER, // Use the full AUTH_HEADER string (constructed with trimmed token)
+                         ...ORG_HEADER, // Use the ORG_HEADER object (constructed with trimmed org ID)
                          "Content-Type": "application/json",
                      },
                  }
@@ -142,6 +151,7 @@ async function getZohoCustomerId(email, name) {
                  return null; 
              }
          } catch (createError) {
+             // --- Error Handling for Create Customer ---
              console.error(
                  "Error creating Zoho customer - Status:",
                  createError.response?.status,
@@ -171,7 +181,7 @@ async function getZohoCustomerId(email, name) {
         // --- END DEBUG LOGGING ---
 
         const searchResponse = await axios.get(ZOHO_CUSTOMERS_API_URL, {
-            headers: { Authorization: AUTH_HEADER, ...ORG_HEADER },
+            headers: { Authorization: AUTH_HEADER, ...ORG_HEADER }, // Headers constructed with trimmed variables
             params: searchParams,
         });
 
@@ -210,6 +220,10 @@ async function getZohoCustomerId(email, name) {
     }
 }
 
+/**
+ * Create invoice in Zoho Billing.
+ * Needs customer ID, paddlePriceId (for mapping to Product ID), amount, and currency.
+ */
 async function createInvoiceInZoho(customerId, paddlePriceId, amount, currency) {
     let createdInvoiceId = null;
     // ZOHO_API_BASE_URL is trimmed at the top level
@@ -229,8 +243,8 @@ async function createInvoiceInZoho(customerId, paddlePriceId, amount, currency) 
     // Adjusted validation message as it's now zohoProductId
     if (!zohoProductId || typeof zohoProductId !== 'string' || zohoProductId.length === 0 || zohoProductId.startsWith("6250588000000XXX")) { // Check for placeholder too
         console.error(
-           `Error creating invoice: Invalid, missing, or placeholder Zoho PRODUCT ID found for Paddle Price ID: "<span class="math-inline">\{paddlePriceId\}"\. Looked up value\: "</span>{zohoProductId}". Check PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP (should map to Zoho Product IDs).`\n```
-           );
+           `Error creating invoice: Invalid, missing, or placeholder Zoho PRODUCT ID found for Paddle Price ID: "<span class="math-inline">\{paddlePriceId\}"\. Looked up value\: "</span>{zohoProductId}". Check PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP (should map to Zoho Product IDs).`
+        );
         return null;
     }
 
@@ -253,7 +267,7 @@ async function createInvoiceInZoho(customerId, paddlePriceId, amount, currency) 
         // Add currency code at the top level as shown in docs
         currency_code: currency,
         // Add invoice date - crucial for accounting
-        date: new Date().toISOString().split('T')[0], // Format:<ctrl97>MM-DD
+        date: new Date().toISOString().split('T')[0], // Format:YYYY-MM-DD
         // Add reference number (optional but good practice, using Paddle Price ID or Tx ID)
         reference_number: paddlePriceId // Or Paddle transaction ID if available/suitable
         // Refer to docs for other top-level fields you might need (e.g., notes, terms)
@@ -322,7 +336,7 @@ async function emailZohoInvoice(invoiceId, recipientEmail) {
     }
 
     // ZOHO_API_BASE_URL is trimmed at the top level
-    const ZOHO_EMAIL_API_URL = `${ZOHO_API_BASE_URL}/billing/v1/invoices/${invoiceId}/email`;
+    const ZOHO_EMAIL_API_URL = `<span class="math-inline">\{ZOHO\_API\_BASE\_URL\}/billing/v1/invoices/</span>{invoiceId}/email`;
 
     // ZOHO_OAUTH_TOKEN and ZOHO_ORGANIZATION_ID are trimmed at the top level
     const AUTH_HEADER = `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`;
@@ -330,8 +344,9 @@ async function emailZohoInvoice(invoiceId, recipientEmail) {
         "X-com-zoho-subscriptions-organizationid": ZOHO_ORGANIZATION_ID,
     };
 
-    // --- Verify Email Payload Structure with Zoho Docs ---
-    // Consult Zoho Books/Billing API v1 documentation for POST /invoices/{id}/email
+    // --- Verify Email Payload Structure with Zoho Docs ---\n\n\n\n```
+
+// Consult Zoho Books/Billing API v1 documentation for POST /invoices/{id}/email
     // to_mail_ids is likely correct. Add subject and body for clarity, and attach_pdf.
 
     const emailPayload = {
@@ -435,10 +450,10 @@ async function handleTransactionCompleted(eventData) {
 
         if (amountFromPaddle) {
             const amountInSmallestUnit = parseInt(amountFromPaddle, 10);
-             // Paddle V2 amounts are in cents, need to convert to dollars for Zoho (if Zoho expects dollars)
+             // Paddle V2 amounts are in cents, need to convert to base unit (e.g., dollars) for Zoho
             if (!isNaN(amountInSmallestUnit)) {
-                amount = amountInSmallestUnit / 100.0;
-                console.log(`Converted amount from Paddle (cents) to dollars: ${amount}`);
+                amount = amountInSmallestUnit / 100.0; // Assuming currency is a standard one like USD/INR where division by 100 is correct
+                console.log(`Converted amount from Paddle (cents) to base unit: ${amount}`);
             } else {
                 console.error(
                     `Bad amount format from webhook: "${amountFromPaddle}" for TxID ${transactionId}`
@@ -589,7 +604,7 @@ app.listen(PORT, () => {
     if (!PADDLE_API_KEY) console.warn("Warning: PADDLE_API_KEY missing.");
     if (!PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP || Object.keys(PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP).length === 0) {
          console.warn("Warning: PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP is empty or missing. Invoice creation will fail.");
-    } else if (Object.values(PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP).some(id => id.startsWith("6250588000000XXX"))) { // Adjusted placeholder check
-         console.warn("Warning: PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP contains placeholder IDs. Replace them with actual Zoho Item IDs.");
+    } else if (Object.values(PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP).some(id => id.startsWith("6250588000000XXX") || id.startsWith("6250588000000YYYYYY") || id.startsWith("6250588000000ZZZZZZ"))) { // Adjusted placeholder check
+         console.warn("Warning: PADDLE_PRICE_ID_TO_ZOHO_ITEM_ID_MAP contains placeholder IDs. Replace them with actual Zoho Product IDs.");
     }
 });
