@@ -85,14 +85,14 @@ async function getPaddleCustomerDetails(paddleCustomerId) {
 
 // --- Zoho API Functions ---
 
-/**
- * Find Zoho customer using email. If not found, create new one.
- * Uses Zoho Billing API. Returns Zoho customer ID.
- */
+// Ensure these global variables are defined at the top of your file:
+// const ZOHO_API_BASE_URL = process.env.ZOHO_API_URL || "https://www.zohoapis.com";
+// const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN;
+// const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID;
+
 async function getZohoCustomerId(email, name) {
     const ZOHO_CUSTOMERS_API_URL = `${ZOHO_API_BASE_URL}/billing/v1/customers`;
 
-    // Ensure these environment variables are loaded correctly at the top of your file
     const AUTH_HEADER = `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`;
     const ORG_HEADER = {
         "X-com-zoho-subscriptions-organizationid": ZOHO_ORGANIZATION_ID,
@@ -104,96 +104,106 @@ async function getZohoCustomerId(email, name) {
     }
 
     const customerDisplayName = name || email;
-    const searchParams = { search_text: email }; // The parameters object for the GET request
+    const searchParams = { search_text: email };
+
+    // --- Function to handle customer creation (called if not found or specific search error occurs) ---
+    const createCustomer = async () => {
+         console.log(`Attempting to create customer: ${customerDisplayName}...`);
+         const createPayload = { display_name: customerDisplayName, email: email };
+         console.log("Creating Zoho customer payload:", JSON.stringify(createPayload));
+
+         try {
+             const createResponse = await axios.post(
+                 ZOHO_CUSTOMERS_API_URL, // POST to the same /customers endpoint
+                 createPayload,
+                 {
+                     headers: {
+                         Authorization: AUTH_HEADER,
+                         ...ORG_HEADER,
+                         "Content-Type": "application/json",
+                     },
+                 }
+             );
+
+             if (createResponse.data?.customer?.customer_id) {
+                 const newCustomerId = createResponse.data.customer.customer_id;
+                 console.log(`Successfully created Zoho customer. ID: ${newCustomerId}`);
+                 return newCustomerId;
+             } else {
+                 console.error(
+                     "Failed to create Zoho customer, bad response data:",
+                     JSON.stringify(createResponse.data)
+                 );
+                 return null; // Return null if creation response is missing ID
+             }
+         } catch (createError) {
+             // --- Error Handling for Create Customer ---
+             console.error(
+                 "Error creating Zoho customer - Status:",
+                 createError.response?.status,
+                 "Data:",
+                 JSON.stringify(createError.response?.data || createError.message)
+             );
+             return null; // Return null on create error
+         }
+    };
+    // --- End of createCustomer function ---
+
 
     try {
         console.log(`Searching Zoho Billing customer by email: ${email}`);
 
         // --- DEBUG LOGGING: See the exact request being sent ---
         console.log("--- Outgoing Zoho GET Customer Search Request ---");
-        // Construct the full URL including parameters for logging
         const fullSearchUrlWithParams = `${ZOHO_CUSTOMERS_API_URL}?${new URLSearchParams(searchParams).toString()}`;
         console.log(` Full URL w/ params: ${fullSearchUrlWithParams}`);
 
-        // Log headers, obfuscating the full token for safety
-        const logHeaders = {
-             Authorization: `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN ? ZOHO_OAUTH_TOKEN.substring(0, 10) + '...' : 'Not Set'}`,
-             ...ORG_HEADER
-        };
-        console.log(` Headers: ${JSON.stringify(logHeaders)}`);
+         // Log headers, obfuscating the full token for safety
+         const logHeaders = {
+              Authorization: `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN ? ZOHO_OAUTH_TOKEN.substring(0, 10) + '...' : 'Not Set'}`,
+              ...ORG_HEADER
+         };
+         console.log(` Headers: ${JSON.stringify(logHeaders)}`);
         console.log("------------------------------------------------");
         // --- END DEBUG LOGGING ---
 
-
         const searchResponse = await axios.get(ZOHO_CUSTOMERS_API_URL, {
             headers: { Authorization: AUTH_HEADER, ...ORG_HEADER },
-            // Use the defined params object which contains search_text: email
             params: searchParams,
         });
 
-        // --- Logic after successful search request (status 200) ---
+        // --- Handle successful search response (Status 200 OK) ---
+        // If the API returns 200 and the 'customers' array is NOT empty, customer is found.
         if (searchResponse.data?.customers?.length > 0) {
-            // Found customer
+            // Customer found
             const customerId = searchResponse.data.customers[0].customer_id;
             console.log(`Found Zoho customer. ID: ${customerId}`);
             return customerId;
         } else {
             // Customer not found (API returned 200 OK, but customer list is empty)
-            console.log(`Customer not found for email ${email}, creating...`);
-
-            const createPayload = { display_name: customerDisplayName, email: email };
-            console.log(
-                "Creating Zoho customer payload:",
-                JSON.stringify(createPayload)
-            );
-
-            try {
-                // --- Create Customer API Call ---
-                const createResponse = await axios.post(
-                    ZOHO_CUSTOMERS_API_URL, // POST to the same /customers endpoint
-                    createPayload,
-                    {
-                        headers: {
-                            Authorization: AUTH_HEADER,
-                            ...ORG_HEADER,
-                            "Content-Type": "application/json",
-                        },
-                    }
-                );
-                 // --- Logic after create customer request ---
-                if (createResponse.data?.customer?.customer_id) {
-                    const newCustomerId = createResponse.data.customer.customer_id;
-                    console.log(`Created Zoho customer. ID: ${newCustomerId}`);
-                    return newCustomerId;
-                } else {
-                    console.error(
-                        "Failed to create Zoho customer, bad response data:",
-                        JSON.stringify(createResponse.data)
-                    );
-                    return null; // Return null if creation response is missing ID
-                }
-            } catch (createError) {
-                 // --- Error Handling for Create Customer ---
-                console.error(
-                    "Error creating Zoho customer - Status:",
-                    createError.response?.status,
-                    "Data:",
-                    JSON.stringify(createError.response?.data || createError.message)
-                );
-                return null; // Return null on create error
-            }
+            console.log(`Search returned 200 OK but found no customers for email ${email}.`);
+            return await createCustomer(); // Proceed to create customer
         }
+
     } catch (searchError) {
-         // --- Error Handling for Search Customer (This is where your 400 is happening) ---
-        console.error(
-            "Error searching Zoho customer - Status:",
-            searchError.response?.status,
-            "Data:",
-            JSON.stringify(searchError.response?.data || searchError.message)
-        );
-        // If search fails (like a 400, 401, 403, or 500), we cannot proceed.
-        console.error(`Zoho customer search failed for ${email}. Aborting customer lookup.`);
-        return null; // Return null on search failure
+         // --- Handle Search Errors (including the 400) ---
+         console.error("Error during Zoho customer search:");
+         console.error(" Status:", searchError.response?.status);
+         console.error(" Data:", JSON.stringify(searchError.response?.data || searchError.message));
+
+         // Check if this is the *specific* 400 error observed in logs
+         const isSpecific400Error = searchError.response?.status === 400 &&
+                                    searchError.response?.data?.message === "The request passed is not valid.";
+
+         if (isSpecific400Error) {
+             // Received the specific 400 error. Treat this like a "not found" scenario
+             console.warn(`Received specific 400 error on search. Treating as "customer not found" and attempting to create.`);
+             return await createCustomer(); // Proceed to create customer
+         } else {
+             // Any other search error (authentication, server error, different validation error) is unexpected and fatal for the lookup -> Abort
+             console.error(`Received unhandled error status ${searchError.response?.status} during search. Aborting customer lookup.`);
+             return null; // Return null for other errors
+         }
     }
 }
 
